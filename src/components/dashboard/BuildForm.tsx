@@ -38,6 +38,12 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
   const [buildMode, setBuildMode] = useState<"webview" | "capacitor">("webview");
   const [projectZip, setProjectZip] = useState<File | null>(null);
   const [admobAppId, setAdmobAppId] = useState("");
+  const [admobBannerId, setAdmobBannerId] = useState("");
+  const [admobInterstitialId, setAdmobInterstitialId] = useState("");
+  const [admobRewardedId, setAdmobRewardedId] = useState("");
+  const [admobRewardedInterstitialId, setAdmobRewardedInterstitialId] = useState("");
+  const [admobAppOpenId, setAdmobAppOpenId] = useState("");
+  const [admobTestMode, setAdmobTestMode] = useState(false);
   const [detectedPlugins, setDetectedPlugins] = useState<string[]>([]);
   const [url, setUrl] = useState("");
   const [appName, setAppName] = useState("");
@@ -307,6 +313,12 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
         url: buildMode === "webview" ? url.trim() : "",
         project_zip_path: projectZipPath,
         admob_app_id: admobAppId.trim() || null,
+        admob_banner_id: admobBannerId.trim() || null,
+        admob_interstitial_id: admobInterstitialId.trim() || null,
+        admob_rewarded_id: admobRewardedId.trim() || null,
+        admob_rewarded_interstitial_id: admobRewardedInterstitialId.trim() || null,
+        admob_app_open_id: admobAppOpenId.trim() || null,
+        admob_test_mode: admobTestMode,
         enable_admob: Boolean(admobAppId.trim()),
         app_name: appName.trim(),
         package_name: resolvedPackageName,
