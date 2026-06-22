@@ -595,6 +595,12 @@ workflows:
           echo "---- Detected Capacitor plugins ----"
           grep -E "Found [0-9]+ Capacitor plugin" /tmp/cap-sync.log || true
           grep -E "^\s+@[^@]+@" /tmp/cap-sync.log || true
+      - name: Validate generated Android project
+        script: |
+          set -euo pipefail
+          PROJECT_DIR="$CM_BUILD_DIR/user-project" \
+          ADMOB_APP_ID="${ADMOB_APP_ID:-}" \
+            node "$CM_BUILD_DIR/capacitor-scripts/validate-build.mjs"
       - name: Decode and install release keystore
         working_directory: user-project
         script: |
