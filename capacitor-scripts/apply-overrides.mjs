@@ -258,13 +258,34 @@ function injectAdMobBootstrap() {
 })();
 `
   fs.writeFileSync(bootstrapFile, js)
+
+  // Ship the full AdMobBridge alongside the init script. The bridge provides
+  // window.AdMobBridge with banner/interstitial/rewarded/rewarded-interstitial/
+  // app-open methods AND forwards every native callback as a DOM event.
+  const here = path.dirname(new URL(import.meta.url).pathname)
+  const bridgeSrc = path.join(here, 'web-bridge', 'admob.js')
+  let bridgeInjected = false
+  if (fs.existsSync(bridgeSrc)) {
+    fs.copyFileSync(bridgeSrc, path.join(bootstrapDir, 'admob.js'))
+    bridgeInjected = true
+  } else {
+    warn(`AdMob bridge source missing at ${bridgeSrc}; web layer will only have raw Capacitor.Plugins.AdMob.`)
+  }
+
   let html = fs.readFileSync(indexHtml, 'utf8')
-  const tag = `<script src="capacitor-bootstrap/admob-init.js" defer></script>`
+  const tags = []
+  if (bridgeInjected && !html.includes('capacitor-bootstrap/admob.js')) {
+    tags.push(`<script src="capacitor-bootstrap/admob.js" defer></script>`)
+  }
   if (!html.includes('capacitor-bootstrap/admob-init.js')) {
-    if (/<\/body>/i.test(html)) html = html.replace(/<\/body>/i, `  ${tag}\n  </body>`)
-    else html += `\n${tag}\n`
+    tags.push(`<script src="capacitor-bootstrap/admob-init.js" defer></script>`)
+  }
+  if (tags.length) {
+    const block = tags.map((t) => `  ${t}`).join('\n')
+    if (/<\/body>/i.test(html)) html = html.replace(/<\/body>/i, `${block}\n  </body>`)
+    else html += `\n${block}\n`
     fs.writeFileSync(indexHtml, html)
-    log('Injected AdMob bootstrap script into webDir/index.html')
+    log(`Injected AdMob scripts into webDir/index.html (${tags.length} tag(s))`)
   }
 }
 injectAdMobBootstrap()
