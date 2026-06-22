@@ -341,11 +341,35 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
         ...feat,
       };
 
-      const { data, error } = await supabase
-        .from("build_configs")
-        .insert(buildPayload as any)
-        .select()
-        .single();
+      const saveBuildConfiguration = async (payload: typeof buildPayload) => {
+        const result = await supabase
+          .from("build_configs")
+          .insert(payload as any)
+          .select()
+          .single();
+
+        if (!result.error) return result;
+
+        const missingColumn = result.error.message.match(/Could not find the '([^']+)' column/)?.[1];
+        const adMobMigrationColumns = [
+          "admob_banner_id",
+          "admob_interstitial_id",
+          "admob_rewarded_id",
+          "admob_rewarded_interstitial_id",
+          "admob_app_open_id",
+          "admob_test_mode",
+        ];
+
+        if (missingColumn && adMobMigrationColumns.includes(missingColumn)) {
+          throw new Error(
+            `Build configuration save failed: your backend database is missing the '${missingColumn}' column. Run migrations-to-apply/20260622_admob_unit_ids.sql in the SQL editor, then retry the build.`,
+          );
+        }
+
+        return result;
+      };
+
+      const { data, error } = await saveBuildConfiguration(buildPayload);
 
       if (error) throw new Error(`Build configuration save failed: ${error.message}`);
       savedBuildId = data.id;
