@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Globe, Rocket, Palette, DollarSign, Key, Loader2, Code2, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import IconCropper from "./IconCropper";
 
@@ -23,6 +24,8 @@ interface BuildFormProps {
   userId: string;
   onBuildStarted: () => void;
 }
+
+type BuildConfigInsertPayload = Database["public"]["Tables"]["build_configs"]["Insert"] & Record<string, unknown>;
 
 const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
   const versionNameToCode = (value: string) => {
@@ -341,10 +344,10 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
         ...feat,
       };
 
-      const saveBuildConfiguration = async (payload: typeof buildPayload) => {
+      const saveBuildConfiguration = async (payload: BuildConfigInsertPayload) => {
         const result = await supabase
           .from("build_configs")
-          .insert(payload as any)
+          .insert(payload)
           .select()
           .single();
 
