@@ -96,6 +96,15 @@ interface AdMobBridge {
 declare global {
   interface Window {
     AdMobBridge?: AdMobBridge;
+    __ADMOB_IDS__?: {
+      appId?: string;
+      banner?: string;
+      interstitial?: string;
+      rewarded?: string;
+      rewardedInterstitial?: string;
+      appOpen?: string;
+      testMode?: boolean;
+    };
   }
 }
 
@@ -158,6 +167,98 @@ export const AdMob = {
     const h = (e: Event) => cb((e as CustomEvent<AdMobEventDetail>).detail);
     window.addEventListener(`admob:${event}`, h);
     return () => window.removeEventListener(`admob:${event}`, h);
+  },
+
+  // ---------------------------------------------------------------------------
+  // High-level helpers — IDs injected at native build time via
+  // `window.__ADMOB_IDS__`. Call these from anywhere in the web app; you do
+  // NOT need to pass ad unit IDs manually. They auto-load and auto-show.
+  // ---------------------------------------------------------------------------
+
+  /** Returns the AdMob configuration injected by the builder (or null). */
+  getIds() {
+    if (typeof window === "undefined") return null;
+    return window.__ADMOB_IDS__ ?? null;
+  },
+
+  /** Show a banner using the configured banner unit ID. */
+  async showBannerAd(opts?: Partial<BannerOptions>) {
+    const ids = (typeof window !== "undefined" && window.__ADMOB_IDS__) || {};
+    if (!ids.banner) throw new Error("[admob] No banner ad unit ID configured.");
+    return AdMob.showBanner({
+      adId: ids.banner,
+      adSize: "ADAPTIVE_BANNER",
+      position: "BOTTOM_CENTER",
+      margin: 0,
+      isTesting: !!ids.testMode,
+      ...(opts || {}),
+    });
+  },
+
+  /** Load + show an interstitial in one call. */
+  async showInterstitialAd() {
+    const ids = (typeof window !== "undefined" && window.__ADMOB_IDS__) || {};
+    if (!ids.interstitial) throw new Error("[admob] No interstitial ad unit ID configured.");
+    await AdMob.loadInterstitial({ adId: ids.interstitial, isTesting: !!ids.testMode });
+    return AdMob.showInterstitial();
+  },
+
+  /** Load + show a rewarded ad. Resolves with the awarded reward when the user finishes. */
+  async showRewardedAd(): Promise<AdMobReward | null> {
+    const ids = (typeof window !== "undefined" && window.__ADMOB_IDS__) || {};
+    if (!ids.rewarded) throw new Error("[admob] No rewarded ad unit ID configured.");
+    return new Promise<AdMobReward | null>((resolve, reject) => {
+      let reward: AdMobReward | null = null;
+      const offReward = AdMob.on("rewardEarned", (d) => {
+        if (d.format === "rewarded" && d.reward) reward = d.reward;
+      });
+      const offClosed = AdMob.on("adClosed", (d) => {
+        if (d.format !== "rewarded") return;
+        offReward(); offClosed(); offFail();
+        resolve(reward);
+      });
+      const offFail = AdMob.on("adFailedToLoad", (d) => {
+        if (d.format !== "rewarded") return;
+        offReward(); offClosed(); offFail();
+        reject(new Error(d.error?.message || "Rewarded ad failed to load"));
+      });
+      AdMob.loadRewarded({ adId: ids.rewarded!, isTesting: !!ids.testMode })
+        .then(() => AdMob.showRewarded())
+        .catch((err) => { offReward(); offClosed(); offFail(); reject(err); });
+    });
+  },
+
+  /** Load + show a rewarded interstitial. Resolves with the reward. */
+  async showRewardedInterstitialAd(): Promise<AdMobReward | null> {
+    const ids = (typeof window !== "undefined" && window.__ADMOB_IDS__) || {};
+    if (!ids.rewardedInterstitial) throw new Error("[admob] No rewarded-interstitial ad unit ID configured.");
+    return new Promise<AdMobReward | null>((resolve, reject) => {
+      let reward: AdMobReward | null = null;
+      const offReward = AdMob.on("rewardEarned", (d) => {
+        if (d.format === "rewardedInterstitial" && d.reward) reward = d.reward;
+      });
+      const offClosed = AdMob.on("adClosed", (d) => {
+        if (d.format !== "rewardedInterstitial") return;
+        offReward(); offClosed(); offFail();
+        resolve(reward);
+      });
+      const offFail = AdMob.on("adFailedToLoad", (d) => {
+        if (d.format !== "rewardedInterstitial") return;
+        offReward(); offClosed(); offFail();
+        reject(new Error(d.error?.message || "Rewarded interstitial failed to load"));
+      });
+      AdMob.loadRewardedInterstitial({ adId: ids.rewardedInterstitial!, isTesting: !!ids.testMode })
+        .then(() => AdMob.showRewardedInterstitial())
+        .catch((err) => { offReward(); offClosed(); offFail(); reject(err); });
+    });
+  },
+
+  /** Load + show an app-open ad (typically on resume). */
+  async showAppOpenAd() {
+    const ids = (typeof window !== "undefined" && window.__ADMOB_IDS__) || {};
+    if (!ids.appOpen) throw new Error("[admob] No app-open ad unit ID configured.");
+    await AdMob.loadAppOpen({ adId: ids.appOpen, isTesting: !!ids.testMode });
+    return AdMob.showAppOpen();
   },
 };
 

@@ -38,6 +38,12 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
   const [buildMode, setBuildMode] = useState<"webview" | "capacitor">("webview");
   const [projectZip, setProjectZip] = useState<File | null>(null);
   const [admobAppId, setAdmobAppId] = useState("");
+  const [admobBannerId, setAdmobBannerId] = useState("");
+  const [admobInterstitialId, setAdmobInterstitialId] = useState("");
+  const [admobRewardedId, setAdmobRewardedId] = useState("");
+  const [admobRewardedInterstitialId, setAdmobRewardedInterstitialId] = useState("");
+  const [admobAppOpenId, setAdmobAppOpenId] = useState("");
+  const [admobTestMode, setAdmobTestMode] = useState(false);
   const [detectedPlugins, setDetectedPlugins] = useState<string[]>([]);
   const [url, setUrl] = useState("");
   const [appName, setAppName] = useState("");
@@ -307,6 +313,12 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
         url: buildMode === "webview" ? url.trim() : "",
         project_zip_path: projectZipPath,
         admob_app_id: admobAppId.trim() || null,
+        admob_banner_id: admobBannerId.trim() || null,
+        admob_interstitial_id: admobInterstitialId.trim() || null,
+        admob_rewarded_id: admobRewardedId.trim() || null,
+        admob_rewarded_interstitial_id: admobRewardedInterstitialId.trim() || null,
+        admob_app_open_id: admobAppOpenId.trim() || null,
+        admob_test_mode: admobTestMode,
         enable_admob: Boolean(admobAppId.trim()),
         app_name: appName.trim(),
         package_name: resolvedPackageName,
@@ -467,18 +479,9 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
                     </div>
                   )}
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-heading text-foreground">AdMob App ID (optional)</Label>
-                  <Input
-                    placeholder="ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY"
-                    value={admobAppId}
-                    onChange={(e) => setAdmobAppId(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Injected into <code>AndroidManifest.xml</code> as the AdMob APPLICATION_ID. Required for AdMob
-                    plugins to initialize at runtime.
-                  </p>
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  Configure AdMob App ID and ad unit IDs in the <b>Monetize</b> tab.
+                </p>
               </div>
             )}
             <div className="grid grid-cols-2 gap-4">
@@ -754,12 +757,88 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
           </TabsContent>
 
           <TabsContent value="monetization" className="mt-0 space-y-4">
-            <div className="rounded-lg border border-border bg-card/30 p-4">
-              <p className="text-sm font-heading font-medium text-foreground">AdMob Ads</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                AdMob is handled by your web app's Capacitor AdMob plugin (e.g. <code className="font-mono">@capacitor-community/admob</code>). Enable <b>Capacitor Support</b> below — no AdMob keys are needed here, the plugin reads them from your web app.
-              </p>
+            <div className="rounded-lg border border-border bg-card/30 p-4 space-y-3">
+              <div>
+                <p className="text-sm font-heading font-medium text-foreground">AdMob</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Paste the IDs from your AdMob console. The builder injects them into the app as <code className="font-mono">window.__ADMOB_IDS__</code>; call <code className="font-mono">AdMob.showInterstitialAd()</code> / <code className="font-mono">showRewardedAd()</code> / <code className="font-mono">showBannerAd()</code> from your web app — IDs are picked up automatically.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-heading text-foreground">AdMob App ID</Label>
+                <Input
+                  placeholder="ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY"
+                  value={admobAppId}
+                  onChange={(e) => setAdmobAppId(e.target.value)}
+                  className="font-mono text-xs"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Goes into <code>AndroidManifest.xml</code> as the AdMob APPLICATION_ID. Required to initialize the SDK.
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label className="text-xs font-heading text-foreground">Banner Ad Unit ID</Label>
+                  <Input
+                    placeholder="ca-app-pub-XXXX/YYYY"
+                    value={admobBannerId}
+                    onChange={(e) => setAdmobBannerId(e.target.value)}
+                    className="font-mono text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-heading text-foreground">Interstitial Ad Unit ID</Label>
+                  <Input
+                    placeholder="ca-app-pub-XXXX/YYYY"
+                    value={admobInterstitialId}
+                    onChange={(e) => setAdmobInterstitialId(e.target.value)}
+                    className="font-mono text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-heading text-foreground">Rewarded Ad Unit ID</Label>
+                  <Input
+                    placeholder="ca-app-pub-XXXX/YYYY"
+                    value={admobRewardedId}
+                    onChange={(e) => setAdmobRewardedId(e.target.value)}
+                    className="font-mono text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-heading text-foreground">Rewarded Interstitial Ad Unit ID</Label>
+                  <Input
+                    placeholder="ca-app-pub-XXXX/YYYY"
+                    value={admobRewardedInterstitialId}
+                    onChange={(e) => setAdmobRewardedInterstitialId(e.target.value)}
+                    className="font-mono text-xs"
+                  />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-xs font-heading text-foreground">App Open Ad Unit ID</Label>
+                  <Input
+                    placeholder="ca-app-pub-XXXX/YYYY"
+                    value={admobAppOpenId}
+                    onChange={(e) => setAdmobAppOpenId(e.target.value)}
+                    className="font-mono text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between rounded-md border border-border p-3">
+                <div>
+                  <p className="text-xs font-heading font-medium text-foreground">Use AdMob Test Ads</p>
+                  <p className="text-[10px] text-muted-foreground">Forces the SDK to serve Google's official test creatives — safe while developing. Turn OFF before publishing.</p>
+                </div>
+                <Switch checked={admobTestMode} onCheckedChange={setAdmobTestMode} />
+              </div>
+
+              <div className="rounded-md border border-border bg-muted/30 p-3 text-[11px] text-muted-foreground">
+                Leave any ad unit blank to disable that format. AdMob requires the <b>App ID</b> to be set; without it the SDK won't initialize and no ads will load.
+              </div>
             </div>
+
             <div className="flex items-center justify-between rounded-lg border border-border bg-card/30 p-4">
               <div>
                 <p className="text-sm font-heading font-medium text-foreground">Google Play Billing</p>
@@ -770,7 +849,7 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
             <div className="flex items-center justify-between rounded-lg border border-border bg-card/30 p-4">
               <div>
                 <p className="text-sm font-heading font-medium text-foreground">Capacitor Support</p>
-                <p className="text-xs text-muted-foreground">Always on — Capacitor core is bundled so your web app's Capacitor plugins (AdMob, camera, share, etc.) work natively. You don't need to configure anything here.</p>
+                <p className="text-xs text-muted-foreground">Always on — Capacitor core is bundled so the AdMob/Billing/Camera/Share plugins work natively.</p>
               </div>
               <Switch checked disabled />
             </div>
