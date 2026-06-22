@@ -269,6 +269,53 @@ function injectAdMobBootstrap() {
 }
 injectAdMobBootstrap()
 
+/* ---------- webDir bootstrap: Play Billing bridge ----------
+ * Copies `capacitor-scripts/web-bridge/play-billing.js` into webDir and
+ * injects a <script> tag so window.PlayBilling is available before the
+ * app loads. Runs when ENABLE_BILLING=true OR when the user has wired
+ * billing manually (we still ship the bridge — it no-ops without native).
+ */
+function injectPlayBillingBootstrap() {
+  if (!ENABLE_BILLING) return
+  const webDir = (() => {
+    if (fs.existsSync(capJsonPath)) {
+      try {
+        const cfg = JSON.parse(fs.readFileSync(capJsonPath, 'utf8'))
+        if (cfg.webDir) return cfg.webDir
+      } catch {}
+    }
+    return detectWebDir()
+  })()
+  const webRoot = path.join(PROJECT_DIR, webDir)
+  const indexHtml = path.join(webRoot, 'index.html')
+  if (!fs.existsSync(indexHtml)) {
+    warn(`webDir/index.html not found at ${indexHtml}; skipping Play Billing bootstrap`)
+    return
+  }
+  // Source lives alongside this script
+  const here = path.dirname(new URL(import.meta.url).pathname)
+  const src = path.join(here, 'web-bridge', 'play-billing.js')
+  if (!fs.existsSync(src)) {
+    warn(`Play Billing bridge source missing at ${src}; skipping injection`)
+    return
+  }
+  const bootstrapDir = path.join(webRoot, 'capacitor-bootstrap')
+  fs.mkdirSync(bootstrapDir, { recursive: true })
+  const dest = path.join(bootstrapDir, 'play-billing.js')
+  fs.copyFileSync(src, dest)
+
+  let html = fs.readFileSync(indexHtml, 'utf8')
+  const tag = `<script src="capacitor-bootstrap/play-billing.js" defer></script>`
+  if (!html.includes('capacitor-bootstrap/play-billing.js')) {
+    if (/<\/body>/i.test(html)) html = html.replace(/<\/body>/i, `  ${tag}\n  </body>`)
+    else html += `\n${tag}\n`
+    fs.writeFileSync(indexHtml, html)
+    log('Injected Play Billing bootstrap script into webDir/index.html')
+  }
+}
+injectPlayBillingBootstrap()
+
+
 /* ---------- android/ overrides ---------- */
 const androidDir = path.join(PROJECT_DIR, 'android')
 if (fs.existsSync(androidDir)) {
