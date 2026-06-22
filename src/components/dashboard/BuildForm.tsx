@@ -479,18 +479,9 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
                     </div>
                   )}
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-heading text-foreground">AdMob App ID (optional)</Label>
-                  <Input
-                    placeholder="ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY"
-                    value={admobAppId}
-                    onChange={(e) => setAdmobAppId(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Injected into <code>AndroidManifest.xml</code> as the AdMob APPLICATION_ID. Required for AdMob
-                    plugins to initialize at runtime.
-                  </p>
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  Configure AdMob App ID and ad unit IDs in the <b>Monetize</b> tab.
+                </p>
               </div>
             )}
             <div className="grid grid-cols-2 gap-4">
