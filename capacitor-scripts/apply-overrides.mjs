@@ -35,6 +35,12 @@ const APP_NAME = (process.env.APP_NAME || '').trim()
 const VERSION_NAME = (process.env.VERSION_NAME || '1.0.0').trim()
 const VERSION_CODE = Number.parseInt(process.env.VERSION_CODE || '1', 10) || 1
 const ADMOB_APP_ID = (process.env.ADMOB_APP_ID || '').trim()
+const ADMOB_BANNER_ID = (process.env.ADMOB_BANNER_ID || '').trim()
+const ADMOB_INTERSTITIAL_ID = (process.env.ADMOB_INTERSTITIAL_ID || '').trim()
+const ADMOB_REWARDED_ID = (process.env.ADMOB_REWARDED_ID || '').trim()
+const ADMOB_REWARDED_INTERSTITIAL_ID = (process.env.ADMOB_REWARDED_INTERSTITIAL_ID || '').trim()
+const ADMOB_APP_OPEN_ID = (process.env.ADMOB_APP_OPEN_ID || '').trim()
+const ADMOB_TEST_MODE = (process.env.ADMOB_TEST_MODE || '').toLowerCase() === 'true'
 const ENABLE_BILLING = (process.env.ENABLE_BILLING || '').toLowerCase() === 'true'
 const EXTRA_PLUGINS = (process.env.EXTRA_PLUGINS || '')
   .split(',')
