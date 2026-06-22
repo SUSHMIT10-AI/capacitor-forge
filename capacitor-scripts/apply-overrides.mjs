@@ -250,10 +250,11 @@ function injectAdMobBootstrap() {
       if (!Capacitor || !Capacitor.isNativePlatform || !Capacitor.isNativePlatform()) return;
       var AdMob = (Capacitor.Plugins && Capacitor.Plugins.AdMob) || window.AdMob;
       if (!AdMob || typeof AdMob.initialize !== 'function') return;
+      var ids = (window.__ADMOB_IDS__ || {});
       AdMob.initialize({
         requestTrackingAuthorization: true,
         testingDevices: [],
-        initializeForTesting: false,
+        initializeForTesting: !!ids.testMode,
       }).then(function () {
         window.dispatchEvent(new CustomEvent('capacitor-admob-ready'));
       }).catch(function (err) { console.warn('[AdMob init failed]', err); });
