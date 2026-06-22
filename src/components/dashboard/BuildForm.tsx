@@ -25,7 +25,7 @@ interface BuildFormProps {
   onBuildStarted: () => void;
 }
 
-type BuildConfigInsertPayload = Database["public"]["Tables"]["build_configs"]["Insert"] & Record<string, unknown>;
+type BuildConfigInsertPayload = Record<string, unknown>;
 
 const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
   const versionNameToCode = (value: string) => {
@@ -347,7 +347,7 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
       const saveBuildConfiguration = async (payload: BuildConfigInsertPayload) => {
         const result = await supabase
           .from("build_configs")
-          .insert(payload)
+          .insert(payload as unknown as Database["public"]["Tables"]["build_configs"]["Insert"])
           .select()
           .single();
 
