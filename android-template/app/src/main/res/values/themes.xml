@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.AABForge" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/splash_bg</item>
+    </style>
+    <!-- Splash theme used while MainActivity launches; switched to Theme.AABForge after WebView ready. -->
+    <style name="Theme.AABForge.Splash" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowBackground">@drawable/splash_screen</item>
+    </style>
+</resources>

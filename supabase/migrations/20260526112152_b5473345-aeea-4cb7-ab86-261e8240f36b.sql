@@ -1,0 +1,1 @@
+ALTER TABLE public.build_configs ADD COLUMN IF NOT EXISTS enable_admob boolean NOT NULL DEFAULT false;

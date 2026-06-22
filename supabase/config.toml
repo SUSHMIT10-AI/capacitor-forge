@@ -1,0 +1,4 @@
+project_id = "virchxbrskekurbutcdd"
+
+[functions.diagnose-codemagic]
+verify_jwt = false
