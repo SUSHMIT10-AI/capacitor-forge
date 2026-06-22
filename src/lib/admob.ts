@@ -96,6 +96,15 @@ interface AdMobBridge {
 declare global {
   interface Window {
     AdMobBridge?: AdMobBridge;
+    __ADMOB_IDS__?: {
+      appId?: string;
+      banner?: string;
+      interstitial?: string;
+      rewarded?: string;
+      rewardedInterstitial?: string;
+      appOpen?: string;
+      testMode?: boolean;
+    };
   }
 }
 
