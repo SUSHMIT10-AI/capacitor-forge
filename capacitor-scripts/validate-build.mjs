@@ -1,0 +1,100 @@
+#!/usr/bin/env node
+/*
+ * Standalone post-`cap sync` validation. Run from CI after
+ * `npx cap sync android` to confirm the generated Android project is ready
+ * to assemble. Exits non-zero with an explicit message when anything is off,
+ * so the build pipeline stops *before* spending minutes on Gradle.
+ *
+ * Env:
+ *   PROJECT_DIR    - absolute path to the Capacitor project root
+ *   ADMOB_APP_ID   - optional, validated against AndroidManifest if set
+ *   STRICT         - "true" to fail on warnings as well
+ */
+import fs from 'node:fs'
+import path from 'node:path'
+
+const PROJECT_DIR = process.env.PROJECT_DIR
+if (!PROJECT_DIR || !fs.existsSync(PROJECT_DIR)) {
+  console.error('[validate-build] PROJECT_DIR missing/invalid:', PROJECT_DIR)
+  process.exit(1)
+}
+const ADMOB_APP_ID = (process.env.ADMOB_APP_ID || '').trim()
+const STRICT = (process.env.STRICT || '').toLowerCase() === 'true'
+
+const errors = []
+const warns = []
+const ok = (msg) => console.log('[validate-build] ✓', msg)
+const fail = (msg) => errors.push(msg)
+const warn = (msg) => warns.push(msg)
+
+const androidDir = path.join(PROJECT_DIR, 'android')
+const appDir = path.join(androidDir, 'app')
+const manifestPath = path.join(appDir, 'src', 'main', 'AndroidManifest.xml')
+const buildGradle = path.join(appDir, 'build.gradle')
+const capConfigJson = path.join(PROJECT_DIR, 'capacitor.config.json')
+const capConfigTs = path.join(PROJECT_DIR, 'capacitor.config.ts')
+const pkgJson = path.join(PROJECT_DIR, 'package.json')
+
+if (!fs.existsSync(pkgJson)) fail('package.json missing in PROJECT_DIR')
+else ok('package.json present')
+
+if (!fs.existsSync(capConfigJson) && !fs.existsSync(capConfigTs))
+  fail('capacitor.config.{ts,json} missing — Capacitor project not initialized')
+else ok('capacitor config present')
+
+if (!fs.existsSync(androidDir)) {
+  fail('android/ directory missing — run `npx cap add android`')
+} else {
+  ok('android project present')
+  if (!fs.existsSync(buildGradle)) fail('android/app/build.gradle missing')
+  if (!fs.existsSync(manifestPath)) fail('AndroidManifest.xml missing')
+  if (!fs.existsSync(path.join(androidDir, 'gradlew')))
+    fail('android/gradlew missing — generated project is incomplete')
+}
+
+if (fs.existsSync(manifestPath)) {
+  const m = fs.readFileSync(manifestPath, 'utf8')
+  if (!/android\.permission\.INTERNET/.test(m)) fail('AndroidManifest missing INTERNET permission')
+  if (ADMOB_APP_ID && !m.includes(ADMOB_APP_ID))
+    fail(`AndroidManifest missing AdMob APPLICATION_ID (${ADMOB_APP_ID})`)
+}
+
+if (fs.existsSync(pkgJson)) {
+  const pkg = JSON.parse(fs.readFileSync(pkgJson, 'utf8'))
+  const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) }
+  for (const required of ['@capacitor/core', '@capacitor/android', '@capacitor/cli']) {
+    if (!deps[required]) fail(`Required dep missing: ${required}`)
+  }
+  if (ADMOB_APP_ID && !deps['@capacitor-community/admob'])
+    fail('AdMob configured but @capacitor-community/admob is not installed')
+}
+
+// Detect that cap sync has actually run — capacitor.plugins.json or similar
+const capPluginsJson = path.join(appDir, 'src', 'main', 'assets', 'capacitor.plugins.json')
+if (fs.existsSync(capPluginsJson)) {
+  try {
+    const list = JSON.parse(fs.readFileSync(capPluginsJson, 'utf8'))
+    ok(`capacitor.plugins.json found with ${list.length} plugin(s) registered`)
+  } catch (e) {
+    warn('capacitor.plugins.json is unreadable: ' + e.message)
+  }
+} else {
+  warn('capacitor.plugins.json not present — run `npx cap sync android` before validation')
+}
+
+if (errors.length) {
+  console.error('\n[validate-build] ❌ Build validation failed:')
+  for (const e of errors) console.error('  - ' + e)
+  if (warns.length) {
+    console.error('[validate-build] warnings:')
+    for (const w of warns) console.error('  - ' + w)
+  }
+  console.error('\nFix the items above before re-running the AAB/APK assembly.')
+  process.exit(2)
+}
+if (warns.length) {
+  console.warn('[validate-build] warnings:')
+  for (const w of warns) console.warn('  - ' + w)
+  if (STRICT) process.exit(3)
+}
+console.log('[validate-build] ✅ All checks passed; safe to assemble AAB/APK.')
