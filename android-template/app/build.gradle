@@ -1,0 +1,283 @@
+plugins {
+    id 'com.android.application'
+}
+
+// ---------------------------------------------------------------------------
+// Signing configuration (robust, never-throws-during-configuration)
+// ---------------------------------------------------------------------------
+// Strategy:
+//   1. Try to read signing.properties (written by codemagic.yaml from the DB).
+//   2. Fall back to CM_* environment variables.
+//   3. If anything is missing OR the keystore file doesn't exist, we DO NOT
+//      configure a release signingConfig. The release build then falls back
+//      to the debug signing key so the AAB still builds (great for testing).
+// ---------------------------------------------------------------------------
+
+def signingProps = new Properties()
+def signingPropsFile = file("signing.properties")
+if (signingPropsFile.exists()) {
+    try { signingPropsFile.withInputStream { signingProps.load(it) } } catch (Exception ignored) {}
+}
+
+def decodeB64 = { String value ->
+    if (value == null || value.trim().isEmpty()) return ""
+    try {
+        return new String(java.util.Base64.getDecoder().decode(value.trim()), "UTF-8")
+    } catch (Exception ignored) {
+        return ""
+    }
+}
+
+def safeInt = { String value, int fallback ->
+    if (value == null || value.trim().isEmpty()) return fallback
+    try { return value.trim().toInteger() } catch (Exception ignored) { return fallback }
+}
+
+def envOrEmpty = { String name -> (System.getenv(name) ?: "").trim() }
+
+// Resolve keystore path (props -> env -> default name)
+def keystorePathStr = (signingProps.getProperty("storeFile") ?: "").trim()
+if (keystorePathStr.isEmpty()) keystorePathStr = envOrEmpty("CM_KEYSTORE_PATH")
+if (keystorePathStr.isEmpty()) keystorePathStr = "release.jks"
+
+def ksFile = file(keystorePathStr)
+try { ksFile = ksFile.absoluteFile } catch (Exception ignored) {}
+
+def ksStorePassword = decodeB64(signingProps.getProperty("storePasswordB64"))
+if (ksStorePassword.isEmpty()) ksStorePassword = envOrEmpty("CM_KEYSTORE_PASSWORD")
+
+def ksKeyAlias = decodeB64(signingProps.getProperty("keyAliasB64"))
+if (ksKeyAlias.isEmpty()) ksKeyAlias = envOrEmpty("CM_KEY_ALIAS")
+
+def ksKeyPassword = decodeB64(signingProps.getProperty("keyPasswordB64"))
+if (ksKeyPassword.isEmpty()) ksKeyPassword = envOrEmpty("CM_KEY_PASSWORD")
+if (ksKeyPassword.isEmpty()) ksKeyPassword = ksStorePassword
+
+def hasReleaseSigning = ksFile != null && ksFile.exists() &&
+        !ksStorePassword.isEmpty() && !ksKeyAlias.isEmpty() && !ksKeyPassword.isEmpty()
+
+println "🔑 Signing: keystoreExists=${ksFile?.exists()} path=${ksFile?.absolutePath} hasPassword=${!ksStorePassword.isEmpty()} hasAlias=${!ksKeyAlias.isEmpty()} -> useReleaseSigning=${hasReleaseSigning}"
+if (!hasReleaseSigning) {
+    println "⚠️  No valid release keystore detected — release build will be signed with the DEBUG key (testing only, not uploadable to an existing Play Store listing)."
+}
+
+// ---------------------------------------------------------------------------
+// App configuration env vars
+// ---------------------------------------------------------------------------
+def envPackageName = envOrEmpty("PACKAGE_NAME")
+def propPackageName = (project.hasProperty("appPackageName") ? project.property("appPackageName").toString() : "").trim()
+def envAppName     = envOrEmpty("APP_NAME")
+def envAppUrl      = envOrEmpty("APP_URL")
+def envVersionName = envOrEmpty("VERSION_NAME")
+def envVersionCode = envOrEmpty("VERSION_CODE")
+def envSplashColor = envOrEmpty("SPLASH_COLOR"); if (envSplashColor.isEmpty()) envSplashColor = "#FFFFFF"
+def envThemeColor  = envOrEmpty("THEME_COLOR");  if (envThemeColor.isEmpty())  envThemeColor  = "#4f46e5"
+def envNavColor    = envOrEmpty("NAV_COLOR");    if (envNavColor.isEmpty())    envNavColor    = "#000000"
+def envUserAgent   = envOrEmpty("USER_AGENT_OVERRIDE")
+
+def envEnableBilling   = envOrEmpty("ENABLE_BILLING").toLowerCase() == "true"
+def envEnableCapacitor = envOrEmpty("ENABLE_CAPACITOR").toLowerCase() == "true"
+
+def boolEnv = { String name, boolean def_ ->
+    def v = System.getenv(name)
+    if (v == null || v.trim().isEmpty()) return def_
+    return v.trim().toLowerCase() == "true"
+}
+
+def fEnablePullToRefresh = boolEnv("ENABLE_PULL_TO_REFRESH", true)
+def fEnableNativeSplash  = boolEnv("ENABLE_NATIVE_SPLASH", true)
+def fEnableOfflinePage   = boolEnv("ENABLE_OFFLINE_PAGE", true)
+def fEnablePush          = boolEnv("ENABLE_PUSH_NOTIFICATIONS", false)
+def fEnableCamera        = boolEnv("ENABLE_CAMERA", false)
+def fEnableMicrophone    = boolEnv("ENABLE_MICROPHONE", false)
+def fEnableLocation      = boolEnv("ENABLE_LOCATION", false)
+def fEnableStorage       = boolEnv("ENABLE_STORAGE", false)
+def fEnableSms           = boolEnv("ENABLE_SMS", false)
+def fEnableContacts      = boolEnv("ENABLE_CONTACTS", false)
+def fEnablePhoneState    = boolEnv("ENABLE_PHONE_STATE", false)
+def fEnableVibrate       = boolEnv("ENABLE_VIBRATE", true)
+def fEnableClipboard     = boolEnv("ENABLE_CLIPBOARD", true)
+def fEnableShare         = boolEnv("ENABLE_SHARE", true)
+def fEnableBiometric     = boolEnv("ENABLE_BIOMETRIC", false)
+def fEnableBluetooth     = boolEnv("ENABLE_BLUETOOTH", false)
+def fEnableNfc           = boolEnv("ENABLE_NFC", false)
+def fEnableCalendar      = boolEnv("ENABLE_CALENDAR", false)
+def fEnableFileDownload  = boolEnv("ENABLE_FILE_DOWNLOAD", true)
+def fEnableFileUpload    = boolEnv("ENABLE_FILE_UPLOAD", true)
+def fEnableGeolocation   = boolEnv("ENABLE_GEOLOCATION", false)
+def fBlockScreenshots    = boolEnv("BLOCK_SCREENSHOTS", false)
+def fKeepScreenOn        = boolEnv("KEEP_SCREEN_ON", false)
+def fFullscreenMode      = boolEnv("FULLSCREEN_MODE", false)
+def fHideStatusBar       = boolEnv("HIDE_STATUS_BAR", false)
+def fAllowZoom           = boolEnv("ALLOW_ZOOM", false)
+def fDarkModeForce       = boolEnv("DARK_MODE_FORCE", false)
+def fAllowExternalLinks  = boolEnv("ALLOW_EXTERNAL_LINKS", true)
+def fCacheEnabled        = boolEnv("CACHE_ENABLED", true)
+def fAllowCleartext      = boolEnv("ALLOW_CLEARTEXT", true)
+def fSwipeBackNavigation = boolEnv("SWIPE_BACK_NAVIGATION", true)
+
+def packagePattern = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/
+def resolvedPackage = !propPackageName.isEmpty() ? propPackageName : envPackageName
+if (resolvedPackage.isEmpty()) {
+    throw new GradleException("PACKAGE_NAME/appPackageName is required. The Android app cannot be built with the template default package.")
+}
+if (!(resolvedPackage ==~ packagePattern)) {
+    throw new GradleException("Invalid Android package name '${resolvedPackage}'. Use a valid package like com.company.app.")
+}
+def resolvedAppName = envAppName.isEmpty() ? "AABForge" : envAppName
+def resolvedAppUrl  = envAppUrl.isEmpty()  ? "https://example.com" : envAppUrl
+// Gradle -P properties take precedence over env vars (set by codemagic.yaml).
+def propVersionName = (project.hasProperty("appVersionName") ? project.property("appVersionName").toString() : "").trim()
+def propVersionCode = (project.hasProperty("appVersionCode") ? project.property("appVersionCode").toString() : "").trim()
+
+def resolvedVName = !propVersionName.isEmpty() ? propVersionName : (envVersionName.isEmpty() ? "1.0" : envVersionName)
+def resolvedVCode = !propVersionCode.isEmpty() ? safeInt(propVersionCode, 1) : safeInt(envVersionCode, 1)
+println "📦 Application ID: ${resolvedPackage} (prop='${propPackageName}' env='${envPackageName}')"
+println "📦 App version: name=${resolvedVName} code=${resolvedVCode} (prop='${propVersionCode}' env='${envVersionCode}')"
+
+android {
+    namespace 'com.aabforge.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId resolvedPackage
+        minSdk 22
+        targetSdk 35
+        versionCode resolvedVCode
+        versionName resolvedVName
+
+        resValue "string", "app_name", resolvedAppName
+        resValue "color",  "splash_bg", envSplashColor
+
+        buildConfigField "String",  "APP_URL",       "\"${resolvedAppUrl}\""
+        buildConfigField "String",  "THEME_COLOR",   "\"${envThemeColor}\""
+        buildConfigField "String",  "NAV_COLOR",     "\"${envNavColor}\""
+        buildConfigField "String",  "USER_AGENT_OVERRIDE", "\"${envUserAgent.replace('\"','\\\"')}\""
+
+        buildConfigField "boolean", "ENABLE_BILLING",          "${envEnableBilling}"
+        buildConfigField "boolean", "ENABLE_CAPACITOR",        "${envEnableCapacitor}"
+        buildConfigField "boolean", "ENABLE_PULL_TO_REFRESH",  "${fEnablePullToRefresh}"
+        buildConfigField "boolean", "ENABLE_NATIVE_SPLASH",    "${fEnableNativeSplash}"
+        buildConfigField "boolean", "ENABLE_OFFLINE_PAGE",     "${fEnableOfflinePage}"
+        buildConfigField "boolean", "ENABLE_PUSH_NOTIFICATIONS","${fEnablePush}"
+        buildConfigField "boolean", "ENABLE_CAMERA",           "${fEnableCamera}"
+        buildConfigField "boolean", "ENABLE_MICROPHONE",       "${fEnableMicrophone}"
+        buildConfigField "boolean", "ENABLE_LOCATION",         "${fEnableLocation}"
+        buildConfigField "boolean", "ENABLE_STORAGE",          "${fEnableStorage}"
+        buildConfigField "boolean", "ENABLE_SMS",              "${fEnableSms}"
+        buildConfigField "boolean", "ENABLE_CONTACTS",         "${fEnableContacts}"
+        buildConfigField "boolean", "ENABLE_PHONE_STATE",      "${fEnablePhoneState}"
+        buildConfigField "boolean", "ENABLE_VIBRATE",          "${fEnableVibrate}"
+        buildConfigField "boolean", "ENABLE_CLIPBOARD",        "${fEnableClipboard}"
+        buildConfigField "boolean", "ENABLE_SHARE",            "${fEnableShare}"
+        buildConfigField "boolean", "ENABLE_BIOMETRIC",        "${fEnableBiometric}"
+        buildConfigField "boolean", "ENABLE_BLUETOOTH",        "${fEnableBluetooth}"
+        buildConfigField "boolean", "ENABLE_NFC",              "${fEnableNfc}"
+        buildConfigField "boolean", "ENABLE_CALENDAR",         "${fEnableCalendar}"
+        buildConfigField "boolean", "ENABLE_FILE_DOWNLOAD",    "${fEnableFileDownload}"
+        buildConfigField "boolean", "ENABLE_FILE_UPLOAD",      "${fEnableFileUpload}"
+        buildConfigField "boolean", "ENABLE_GEOLOCATION",      "${fEnableGeolocation}"
+        buildConfigField "boolean", "BLOCK_SCREENSHOTS",       "${fBlockScreenshots}"
+        buildConfigField "boolean", "KEEP_SCREEN_ON",          "${fKeepScreenOn}"
+        buildConfigField "boolean", "FULLSCREEN_MODE",         "${fFullscreenMode}"
+        buildConfigField "boolean", "HIDE_STATUS_BAR",         "${fHideStatusBar}"
+        buildConfigField "boolean", "ALLOW_ZOOM",              "${fAllowZoom}"
+        buildConfigField "boolean", "DARK_MODE_FORCE",         "${fDarkModeForce}"
+        buildConfigField "boolean", "ALLOW_EXTERNAL_LINKS",    "${fAllowExternalLinks}"
+        buildConfigField "boolean", "CACHE_ENABLED",           "${fCacheEnabled}"
+        buildConfigField "boolean", "ALLOW_CLEARTEXT",         "${fAllowCleartext}"
+        buildConfigField "boolean", "SWIPE_BACK_NAVIGATION",   "${fSwipeBackNavigation}"
+
+        // Optional native permissions are injected into AndroidManifest.xml by
+        // codemagic.yaml before Gradle runs. Keeping them out of the base manifest
+        // avoids manifest-merger failures and prevents disabled features from
+        // appearing in the final AAB.
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile ksFile
+                storePassword ksStorePassword
+                keyAlias ksKeyAlias
+                keyPassword ksKeyPassword
+                enableV1Signing true
+                enableV2Signing true
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+                println "✅ Release build signed with uploaded keystore: ${ksFile.absolutePath} (alias: ${ksKeyAlias})"
+            } else {
+                // No fallback to debug — Play Console rejects debug-signed AABs.
+                // Fail the build at task-graph time with a clear message.
+                gradle.taskGraph.whenReady { graph ->
+                    if (graph.allTasks.any { it.name in ['bundleRelease', 'assembleRelease', 'packageRelease'] }) {
+                        throw new GradleException(
+                            "No release keystore configured. Upload a .jks in Dashboard → Signing Keys " +
+                            "(set as default or select on the build form) and re-run. Play Console will not " +
+                            "accept debug-signed AABs."
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    packagingOptions {
+        resources {
+            excludes += ['META-INF/DEPENDENCIES', 'META-INF/LICENSE', 'META-INF/LICENSE.txt', 'META-INF/NOTICE', 'META-INF/NOTICE.txt']
+        }
+    }
+
+    bundle {
+        language { enableSplit = true }
+        density  { enableSplit = true }
+        abi      { enableSplit = true }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+configurations.all {
+    resolutionStrategy {
+        force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.22'
+        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.22'
+        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.22'
+        force 'org.jetbrains.kotlin:kotlin-stdlib-common:1.9.22'
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+    implementation('androidx.webkit:webkit:1.11.0') {
+        exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
+        exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
+    }
+
+    if (envEnableBilling) {
+        implementation 'com.android.billingclient:billing:6.2.1'
+    }
+
+    if (envEnableCapacitor) {
+        implementation 'com.capacitorjs:core:6.1.2'
+    }
+}
