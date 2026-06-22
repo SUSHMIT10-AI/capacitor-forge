@@ -258,13 +258,34 @@ function injectAdMobBootstrap() {
 })();
 `
   fs.writeFileSync(bootstrapFile, js)
+
+  // Ship the full AdMobBridge alongside the init script. The bridge provides
+  // window.AdMobBridge with banner/interstitial/rewarded/rewarded-interstitial/
+  // app-open methods AND forwards every native callback as a DOM event.
+  const here = path.dirname(new URL(import.meta.url).pathname)
+  const bridgeSrc = path.join(here, 'web-bridge', 'admob.js')
+  let bridgeInjected = false
+  if (fs.existsSync(bridgeSrc)) {
+    fs.copyFileSync(bridgeSrc, path.join(bootstrapDir, 'admob.js'))
+    bridgeInjected = true
+  } else {
+    warn(`AdMob bridge source missing at ${bridgeSrc}; web layer will only have raw Capacitor.Plugins.AdMob.`)
+  }
+
   let html = fs.readFileSync(indexHtml, 'utf8')
-  const tag = `<script src="capacitor-bootstrap/admob-init.js" defer></script>`
+  const tags = []
+  if (bridgeInjected && !html.includes('capacitor-bootstrap/admob.js')) {
+    tags.push(`<script src="capacitor-bootstrap/admob.js" defer></script>`)
+  }
   if (!html.includes('capacitor-bootstrap/admob-init.js')) {
-    if (/<\/body>/i.test(html)) html = html.replace(/<\/body>/i, `  ${tag}\n  </body>`)
-    else html += `\n${tag}\n`
+    tags.push(`<script src="capacitor-bootstrap/admob-init.js" defer></script>`)
+  }
+  if (tags.length) {
+    const block = tags.map((t) => `  ${t}`).join('\n')
+    if (/<\/body>/i.test(html)) html = html.replace(/<\/body>/i, `${block}\n  </body>`)
+    else html += `\n${block}\n`
     fs.writeFileSync(indexHtml, html)
-    log('Injected AdMob bootstrap script into webDir/index.html')
+    log(`Injected AdMob scripts into webDir/index.html (${tags.length} tag(s))`)
   }
 }
 injectAdMobBootstrap()
@@ -504,6 +525,68 @@ if (exists(pkgPath)) {
     )
   }
 }
+
+// ----- AdMob-specific validation (only when AdMob is configured) -----
+if (ADMOB_APP_ID) {
+  const webDir = (() => {
+    if (exists(capJsonPath)) {
+      try { return JSON.parse(fs.readFileSync(capJsonPath, 'utf8')).webDir || detectWebDir() }
+      catch { return detectWebDir() }
+    }
+    return detectWebDir()
+  })()
+  const webRoot = path.join(PROJECT_DIR, webDir)
+  const indexHtml = path.join(webRoot, 'index.html')
+  if (exists(indexHtml)) {
+    const html = fs.readFileSync(indexHtml, 'utf8')
+    if (!html.includes('capacitor-bootstrap/admob.js'))
+      validationErrors.push('AdMob JS bridge (capacitor-bootstrap/admob.js) not injected into webDir/index.html')
+    if (!html.includes('capacitor-bootstrap/admob-init.js'))
+      validationErrors.push('AdMob init script (capacitor-bootstrap/admob-init.js) not injected into webDir/index.html')
+  } else {
+    validationWarns.push(`webDir/index.html missing — cannot verify AdMob bridge injection (looked at ${indexHtml})`)
+  }
+  if (exists(path.join(webRoot, 'capacitor-bootstrap'))) {
+    if (!exists(path.join(webRoot, 'capacitor-bootstrap', 'admob.js')))
+      validationErrors.push('capacitor-bootstrap/admob.js missing in webDir — AdMob JS bridge will not load.')
+    if (!exists(path.join(webRoot, 'capacitor-bootstrap', 'admob-init.js')))
+      validationErrors.push('capacitor-bootstrap/admob-init.js missing in webDir.')
+  }
+  // capacitor.plugins.json is created by `cap sync` and lists registered native plugins.
+  const capPluginsJson = path.join(androidDir, 'app', 'src', 'main', 'assets', 'capacitor.plugins.json')
+  if (exists(capPluginsJson)) {
+    try {
+      const list = JSON.parse(fs.readFileSync(capPluginsJson, 'utf8'))
+      const hasAdMob = list.some((p) => (p.pkg || p.id || '').includes('@capacitor-community/admob'))
+      if (!hasAdMob)
+        validationErrors.push('AdMob plugin is not registered in capacitor.plugins.json — run `npx cap sync android` after installing @capacitor-community/admob.')
+    } catch (e) {
+      validationWarns.push('capacitor.plugins.json unreadable: ' + e.message)
+    }
+  } else if (process.env.REQUIRE_ANDROID === 'true') {
+    validationErrors.push('capacitor.plugins.json missing — `npx cap sync android` has not been run yet.')
+  }
+  // Gradle dependency check (play-services-ads pulled by the plugin, but verify after patch).
+  const appGradle = path.join(androidDir, 'app', 'build.gradle')
+  if (exists(appGradle)) {
+    const g = fs.readFileSync(appGradle, 'utf8')
+    if (!/play-services-ads/.test(g) && !/capacitor-community[\s\S]*admob/i.test(g)) {
+      validationWarns.push('app/build.gradle has no explicit play-services-ads dependency; relying on plugin transitive dep.')
+    }
+  }
+  // capacitor.config.json must carry the AdMob plugin block so cap sync wires it up.
+  if (exists(capJsonPath)) {
+    try {
+      const cfg = JSON.parse(fs.readFileSync(capJsonPath, 'utf8'))
+      const cfgId = cfg && cfg.plugins && cfg.plugins.AdMob && cfg.plugins.AdMob.appId
+      if (cfgId !== ADMOB_APP_ID)
+        validationErrors.push(`capacitor.config.json plugins.AdMob.appId (${cfgId || 'missing'}) does not match ADMOB_APP_ID (${ADMOB_APP_ID}).`)
+    } catch (e) {
+      validationErrors.push('capacitor.config.json unreadable: ' + e.message)
+    }
+  }
+}
+
 
 if (validationErrors.length) {
   console.error('\n[apply-overrides] ❌ Pre-build validation failed:')
