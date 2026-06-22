@@ -9,3 +9,6 @@ ALTER TABLE public.build_configs
   ADD COLUMN IF NOT EXISTS admob_rewarded_interstitial_id text,
   ADD COLUMN IF NOT EXISTS admob_app_open_id              text,
   ADD COLUMN IF NOT EXISTS admob_test_mode                boolean NOT NULL DEFAULT false;
+
+-- Refresh PostgREST's schema cache so the dashboard can insert these fields immediately.
+NOTIFY pgrst, 'reload schema';

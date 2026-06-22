@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Globe, Rocket, Palette, DollarSign, Key, Loader2, Code2, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import IconCropper from "./IconCropper";
 
@@ -23,6 +24,8 @@ interface BuildFormProps {
   userId: string;
   onBuildStarted: () => void;
 }
+
+type BuildConfigInsertPayload = Record<string, unknown>;
 
 const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
   const versionNameToCode = (value: string) => {
@@ -341,11 +344,35 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
         ...feat,
       };
 
-      const { data, error } = await supabase
-        .from("build_configs")
-        .insert(buildPayload as any)
-        .select()
-        .single();
+      const saveBuildConfiguration = async (payload: BuildConfigInsertPayload) => {
+        const result = await supabase
+          .from("build_configs")
+          .insert(payload as unknown as Database["public"]["Tables"]["build_configs"]["Insert"])
+          .select()
+          .single();
+
+        if (!result.error) return result;
+
+        const missingColumn = result.error.message.match(/Could not find the '([^']+)' column/)?.[1];
+        const adMobMigrationColumns = [
+          "admob_banner_id",
+          "admob_interstitial_id",
+          "admob_rewarded_id",
+          "admob_rewarded_interstitial_id",
+          "admob_app_open_id",
+          "admob_test_mode",
+        ];
+
+        if (missingColumn && adMobMigrationColumns.includes(missingColumn)) {
+          throw new Error(
+            `Build configuration save failed: your backend database is missing the '${missingColumn}' column. Run migrations-to-apply/20260622_admob_unit_ids.sql in the SQL editor, then retry the build.`,
+          );
+        }
+
+        return result;
+      };
+
+      const { data, error } = await saveBuildConfiguration(buildPayload);
 
       if (error) throw new Error(`Build configuration save failed: ${error.message}`);
       savedBuildId = data.id;
