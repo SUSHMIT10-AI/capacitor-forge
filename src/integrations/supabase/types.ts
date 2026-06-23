@@ -17,9 +17,12 @@ export type Database = {
       build_configs: {
         Row: {
           admob_app_id: string | null
+          admob_app_open_id: string | null
           admob_banner_id: string | null
           admob_interstitial_id: string | null
           admob_rewarded_id: string | null
+          admob_rewarded_interstitial_id: string | null
+          admob_test_mode: boolean
           allow_cleartext: boolean
           allow_external_links: boolean
           allow_zoom: boolean
@@ -87,9 +90,12 @@ export type Database = {
         }
         Insert: {
           admob_app_id?: string | null
+          admob_app_open_id?: string | null
           admob_banner_id?: string | null
           admob_interstitial_id?: string | null
           admob_rewarded_id?: string | null
+          admob_rewarded_interstitial_id?: string | null
+          admob_test_mode?: boolean
           allow_cleartext?: boolean
           allow_external_links?: boolean
           allow_zoom?: boolean
@@ -157,9 +163,12 @@ export type Database = {
         }
         Update: {
           admob_app_id?: string | null
+          admob_app_open_id?: string | null
           admob_banner_id?: string | null
           admob_interstitial_id?: string | null
           admob_rewarded_id?: string | null
+          admob_rewarded_interstitial_id?: string | null
+          admob_test_mode?: boolean
           allow_cleartext?: boolean
           allow_external_links?: boolean
           allow_zoom?: boolean
@@ -271,6 +280,57 @@ export type Database = {
           storage_path?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      play_purchases: {
+        Row: {
+          acknowledged: boolean
+          created_at: string
+          expiry_time_ms: number | null
+          id: string
+          is_subscription: boolean
+          order_id: string | null
+          package_name: string
+          product_id: string
+          purchase_state: number | null
+          purchase_token: string
+          raw: Json | null
+          updated_at: string
+          user_id: string
+          verified_at: string
+        }
+        Insert: {
+          acknowledged?: boolean
+          created_at?: string
+          expiry_time_ms?: number | null
+          id?: string
+          is_subscription?: boolean
+          order_id?: string | null
+          package_name: string
+          product_id: string
+          purchase_state?: number | null
+          purchase_token: string
+          raw?: Json | null
+          updated_at?: string
+          user_id: string
+          verified_at?: string
+        }
+        Update: {
+          acknowledged?: boolean
+          created_at?: string
+          expiry_time_ms?: number | null
+          id?: string
+          is_subscription?: boolean
+          order_id?: string | null
+          package_name?: string
+          product_id?: string
+          purchase_state?: number | null
+          purchase_token?: string
+          raw?: Json | null
+          updated_at?: string
+          user_id?: string
+          verified_at?: string
         }
         Relationships: []
       }
