@@ -68,18 +68,6 @@ Deno.serve(async (req) => {
     repo: a.repository?.htmlUrl ?? a.repository?.url ?? null,
     workflows: a.workflows ? Object.keys(a.workflows) : [],
   }))
-  const fallback = apps
-    .filter((a: any) => String(a.repository?.htmlUrl ?? a.repository?.url ?? '').toLowerCase().includes('/full-app-replication'))
-    .at(-1)
-  if (fallback?._id) {
-    result.recommended_app = {
-      _id: fallback._id,
-      appName: fallback.appName,
-      repo: fallback.repository?.htmlUrl ?? fallback.repository?.url ?? null,
-      workflows: fallback.workflows ? Object.keys(fallback.workflows) : [],
-    }
-  }
-
   // 2. Try fetching the specific configured app
   if (appId) {
     const oneRes = await fetch(`https://api.codemagic.io/apps/${appId}`, {
@@ -89,9 +77,6 @@ Deno.serve(async (req) => {
     result.configured_app_status = oneRes.status
     if (!oneRes.ok) {
       result.configured_app_error = oneJson
-      if (fallback?._id) {
-        result.configured_app_recommendation = `Update CODEMAGIC_APP_ID to ${fallback._id}, or rely on the build function fallback.`
-      }
     } else {
       result.configured_app_summary = {
         _id: oneJson._id,

@@ -1,31 +1,25 @@
-## What I found
+## Goal
+Use the new Codemagic APP ID `6a3bdcd9a6402664a3e602bb` as the single source of truth for all builds. Remove fallback logic that silently switches to another app when the configured one isn't accessible.
 
-- The uploaded project zip is reaching backend storage successfully.
-- No `build_configs` row is created after upload, so the `build-aab` function is never called.
-- Because `build-aab` is never called, Codemagic never receives a build request.
-- There are no recent logs for `build-aab` or `poll-codemagic-build`, confirming the flow stops before Codemagic.
-- The likely failure point is the frontend insert into `build_configs`, most likely due to stale schema/type mismatch or missing visible error handling after the zip upload.
+## Changes
 
-## Fix plan
+### 1. Update the secret
+Update `CODEMAGIC_APP_ID` to `6a3bdcd9a6402664a3e602bb` via `secrets--update_secret`-style internal set (using `set_secret` would skip since the key already exists, so use `update_secret`).
 
-1. **Make the build form fail visibly at the exact step**
-   - Add explicit step-by-step error messages for: zip upload URL, zip upload, `build_configs` insert, and Codemagic trigger.
-   - Keep the uploaded zip path and insert payload consistent so a successful zip upload always creates a build record.
+### 2. `supabase/functions/build-aab/index.ts`
+- Remove `resolveCodemagicAppId()` and `fetchCodemagicApp()` helpers entirely.
+- At the call site (line ~201), use `savedCmAppId` directly: `const cmAppId = savedCmAppId`.
+- Drop the `appIdWarning` log.
+- Keep the early guard that fails if `CODEMAGIC_APP_ID` is not set.
 
-2. **Fix the build record creation path**
-   - Ensure `BuildForm.tsx` inserts only fields that exist in the live database.
-   - Store the uploaded zip path in `project_zip_path` and set `mode = 'capacitor'` correctly.
-   - Set the default build type to `aab` so it builds a Play Store AAB by default.
+### 3. `supabase/functions/diagnose-codemagic/index.ts`
+- Remove the `fallback` lookup (lines ~71–81) and the `configured_app_recommendation` line (~93) that suggests switching app IDs.
+- Keep the listing of accessible apps and the configured-app fetch for diagnostics.
 
-3. **Fix Codemagic build ID tracking**
-   - Update `build-aab` to write the Codemagic build ID into the existing `codemagic_build_id` column instead of hiding it inside `error_message`.
-   - Update `poll-codemagic-build` to read from `codemagic_build_id` first, with backward compatibility for old `cm:` markers.
+### 4. `supabase/functions/poll-codemagic-build/index.ts`
+No changes needed — it already uses the configured `CODEMAGIC_APP_ID` directly with no fallback.
 
-4. **Make the dashboard recover stuck uploads/builds**
-   - Show failed build-start errors in the build history instead of leaving the user with no row.
-   - Make polling more reliable for `pending` and `building` builds.
-
-5. **Validate the full flow**
-   - Test the deployed edge function call path after the changes.
-   - Confirm a build row is created and `build-aab` is invoked.
-   - Check edge function logs and database state to verify Codemagic receives the build request.
+## Out of scope
+- No database changes.
+- No UI changes.
+- Workflow IDs and other Codemagic env vars remain as-is.
