@@ -169,20 +169,32 @@ if (fs.existsSync(pkgPath)) {
   pkg.dependencies = pkg.dependencies || {}
   pkg.devDependencies = pkg.devDependencies || {}
 
-  const ensureDep = (name, version, dev = false) => {
-    if (pkg.dependencies[name] || pkg.devDependencies[name]) {
+  const ensureDep = (name, version, dev = false, force = false) => {
+    if (!force && (pkg.dependencies[name] || pkg.devDependencies[name])) {
       installedPlugins.add(name)
       return
     }
+    if (dev) delete pkg.dependencies[name]
+    else delete pkg.devDependencies[name]
     ;(dev ? pkg.devDependencies : pkg.dependencies)[name] = version
     installedPlugins.add(name)
-    log(`Added ${dev ? 'devDependency' : 'dependency'} ${name}@${version}`)
+    log(`${force ? 'Forced' : 'Added'} ${dev ? 'devDependency' : 'dependency'} ${name}@${version}`)
   }
 
-  // Always wire core
-  ensureDep('@capacitor/core', '^6.1.2')
-  ensureDep('@capacitor/android', '^6.1.2')
-  ensureDep('@capacitor/cli', '^6.1.2', true)
+  // Always wire core — FORCE the major version so it stays in lockstep with the
+  // plugin catalog (all pinned to ^6.x). Otherwise @capacitor/core@^8 from the
+  // user's project collides with @capacitor/splash-screen@^6 peer range and
+  // `npm install` fails with ERESOLVE.
+  ensureDep('@capacitor/core', '^6.1.2', false, true)
+  ensureDep('@capacitor/android', '^6.1.2', false, true)
+  ensureDep('@capacitor/cli', '^6.1.2', true, true)
+
+  // Also realign any user-pinned plugin to the catalog version so peer ranges
+  // resolve cleanly against @capacitor/core@^6.
+  for (const [name, version] of Object.entries(PLUGIN_CATALOG)) {
+    if (pkg.dependencies[name]) pkg.dependencies[name] = version
+    if (pkg.devDependencies[name]) pkg.devDependencies[name] = version
+  }
 
   // Detect plugins already present in package.json — keep them, mark installed
   for (const name of Object.keys(PLUGIN_CATALOG)) {
