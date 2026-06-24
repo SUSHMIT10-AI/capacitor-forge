@@ -541,7 +541,10 @@ workflows:
           elif [ -f pnpm-lock.yaml ]; then
             corepack enable && pnpm install --no-frozen-lockfile
           else
-            npm install --no-audit --no-fund
+            # --legacy-peer-deps avoids ERESOLVE when a user project pins a
+            # different @capacitor/core major than the plugin catalog; the
+            # apply-overrides step already realigns versions, this is a safety net.
+            npm install --no-audit --no-fund --legacy-peer-deps
           fi
           npm ls @capacitor/core @capacitor/cli @capacitor/android @capacitor-community/admob 2>/dev/null || true
       - name: Ensure Capacitor CLI is available
@@ -549,7 +552,7 @@ workflows:
         script: |
           set -euo pipefail
           if ! npx --no-install cap --version >/dev/null 2>&1; then
-            npm install --save-dev @capacitor/cli @capacitor/core @capacitor/android
+            npm install --save-dev --legacy-peer-deps @capacitor/cli @capacitor/core @capacitor/android
           fi
           npx cap --version
       - name: Build web bundle if needed
