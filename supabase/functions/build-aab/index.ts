@@ -198,8 +198,7 @@ Deno.serve(async (req) => {
     }
 
     const cmWorkflowId = buildMode === 'capacitor' ? capacitorWorkflowId : webviewWorkflowId
-    const { appId: cmAppId, warning: appIdWarning } = await resolveCodemagicAppId(cmToken, savedCmAppId, cmWorkflowId, buildMode)
-    if (appIdWarning) console.warn(appIdWarning)
+    const cmAppId = savedCmAppId
 
     // Trigger Codemagic build
     const triggerBody: any = {
@@ -354,44 +353,7 @@ function toBase64(value: string) {
   return btoa(binary)
 }
 
-async function resolveCodemagicAppId(token: string, savedAppId: string, workflowId: string, buildMode: 'webview' | 'capacitor') {
-  const saved = await fetchCodemagicApp(token, savedAppId)
-  if (saved.ok) return { appId: savedAppId, warning: '' }
 
-  if (buildMode === 'capacitor') {
-    throw new Error(`Saved Codemagic app ID ${savedAppId} is not accessible. Update CODEMAGIC_APP_ID to the connected app that contains the fixed capacitor-aab-workflow; not falling back because older readable apps have stale codemagic.yaml and fail before build starts.`)
-  }
-
-  const appsRes = await fetch(`${CODEMAGIC_API}/apps`, {
-    headers: { 'x-auth-token': token },
-  })
-  const appsJson = await appsRes.json().catch(() => ({}))
-  if (!appsRes.ok) {
-    throw new Error(`Codemagic app lookup failed (${appsRes.status}): ${JSON.stringify(appsJson)}`)
-  }
-
-  const apps = (appsJson.applications ?? appsJson ?? []) as any[]
-  const candidates = apps.filter((app) => {
-    const repo = String(app.repository?.htmlUrl ?? app.repository?.url ?? '').toLowerCase()
-    return repo.includes('/full-app-replication')
-  })
-  const fallback = candidates.at(-1)
-  if (!fallback?._id) {
-    throw new Error(`Saved Codemagic app ID ${savedAppId} is not accessible and no readable full-app-replication app with workflow ${workflowId} was found.`)
-  }
-
-  return {
-    appId: fallback._id as string,
-    warning: `Saved Codemagic app ID ${savedAppId} is not accessible; using readable app ${fallback._id} for ${fallback.repository?.htmlUrl ?? fallback.repository?.url ?? 'full-app-replication'}.`,
-  }
-}
-
-async function fetchCodemagicApp(token: string, appId: string) {
-  const res = await fetch(`${CODEMAGIC_API}/apps/${appId}`, {
-    headers: { 'x-auth-token': token },
-  })
-  return { ok: res.ok, status: res.status }
-}
 
 function versionNameToCode(value: string) {
   const [major = 1, minor = 0, patch = 0] = value
