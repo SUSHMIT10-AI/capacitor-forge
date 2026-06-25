@@ -480,6 +480,13 @@ export function patchAndroid(root) {
   const manifestPath = path.join(root, 'app', 'src', 'main', 'AndroidManifest.xml')
   if (fs.existsSync(manifestPath)) {
     let m = fs.readFileSync(manifestPath, 'utf8')
+    // Ensure xmlns:tools so we can use tools:replace below.
+    if (!/xmlns:tools=/.test(m)) {
+      m = m.replace(
+        /<manifest\b([^>]*)>/,
+        (_match, attrs) => `<manifest${attrs} xmlns:tools="http://schemas.android.com/tools">`,
+      )
+    }
     const ensurePerm = (perm) => {
       if (!new RegExp(`uses-permission[^>]+${perm.replace(/\./g, '\\.')}`).test(m)) {
         m = m.replace(
@@ -503,11 +510,13 @@ export function patchAndroid(root) {
     if (ENABLE_BILLING) ensurePerm('com.android.vending.BILLING')
 
     if (ADMOB_APP_ID) {
-      const adMeta = `        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="${ADMOB_APP_ID}" />`
+      // tools:replace prevents manifest-merger conflicts when the AdMob plugin
+      // (or a transitive lib) declares its own APPLICATION_ID meta-data.
+      const adMeta = `        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="${ADMOB_APP_ID}" tools:replace="android:value" />`
       if (/com\.google\.android\.gms\.ads\.APPLICATION_ID/.test(m)) {
         m = m.replace(
           /<meta-data\s+android:name="com\.google\.android\.gms\.ads\.APPLICATION_ID"[^/]*\/>/,
-          `<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="${ADMOB_APP_ID}" />`,
+          `<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="${ADMOB_APP_ID}" tools:replace="android:value" />`,
         )
       } else {
         m = m.replace(/<\/application>/, `${adMeta}\n    </application>`)
