@@ -414,6 +414,14 @@ export function patchAndroid(root) {
     g = g.replace(/applicationId\s+["'][^"']+["']/, `applicationId "${APP_ID}"`)
     g = g.replace(/versionCode\s+\d+/, `versionCode ${VERSION_CODE}`)
     g = g.replace(/versionName\s+["'][^"']+["']/, `versionName "${VERSION_NAME}"`)
+    // AGP 8 requires `namespace` in every module. Capacitor 6 sets it, but if a
+    // user shipped an older template or removed it, Gradle fails with
+    //   "Namespace not specified. Specify a namespace in the module's build file."
+    if (!/^\s*namespace\s+["']/m.test(g)) {
+      g = g.replace(/android\s*\{/, (m) => `${m}\n    namespace "${APP_ID}"`)
+    } else {
+      g = g.replace(/namespace\s+["'][^"']+["']/, `namespace "${APP_ID}"`)
+    }
     // MultiDex
     if (!/multiDexEnabled\s+true/.test(g)) {
       g = g.replace(/defaultConfig\s*\{/, (m) => `${m}\n        multiDexEnabled true`)
