@@ -414,6 +414,14 @@ export function patchAndroid(root) {
     g = g.replace(/applicationId\s+["'][^"']+["']/, `applicationId "${APP_ID}"`)
     g = g.replace(/versionCode\s+\d+/, `versionCode ${VERSION_CODE}`)
     g = g.replace(/versionName\s+["'][^"']+["']/, `versionName "${VERSION_NAME}"`)
+    // AGP 8 requires `namespace` in every module. Capacitor 6 sets it, but if a
+    // user shipped an older template or removed it, Gradle fails with
+    //   "Namespace not specified. Specify a namespace in the module's build file."
+    if (!/^\s*namespace\s+["']/m.test(g)) {
+      g = g.replace(/android\s*\{/, (m) => `${m}\n    namespace "${APP_ID}"`)
+    } else {
+      g = g.replace(/namespace\s+["'][^"']+["']/, `namespace "${APP_ID}"`)
+    }
     // MultiDex
     if (!/multiDexEnabled\s+true/.test(g)) {
       g = g.replace(/defaultConfig\s*\{/, (m) => `${m}\n        multiDexEnabled true`)
@@ -472,6 +480,13 @@ export function patchAndroid(root) {
   const manifestPath = path.join(root, 'app', 'src', 'main', 'AndroidManifest.xml')
   if (fs.existsSync(manifestPath)) {
     let m = fs.readFileSync(manifestPath, 'utf8')
+    // Ensure xmlns:tools so we can use tools:replace below.
+    if (!/xmlns:tools=/.test(m)) {
+      m = m.replace(
+        /<manifest\b([^>]*)>/,
+        (_match, attrs) => `<manifest${attrs} xmlns:tools="http://schemas.android.com/tools">`,
+      )
+    }
     const ensurePerm = (perm) => {
       if (!new RegExp(`uses-permission[^>]+${perm.replace(/\./g, '\\.')}`).test(m)) {
         m = m.replace(
@@ -495,11 +510,13 @@ export function patchAndroid(root) {
     if (ENABLE_BILLING) ensurePerm('com.android.vending.BILLING')
 
     if (ADMOB_APP_ID) {
-      const adMeta = `        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="${ADMOB_APP_ID}" />`
+      // tools:replace prevents manifest-merger conflicts when the AdMob plugin
+      // (or a transitive lib) declares its own APPLICATION_ID meta-data.
+      const adMeta = `        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="${ADMOB_APP_ID}" tools:replace="android:value" />`
       if (/com\.google\.android\.gms\.ads\.APPLICATION_ID/.test(m)) {
         m = m.replace(
           /<meta-data\s+android:name="com\.google\.android\.gms\.ads\.APPLICATION_ID"[^/]*\/>/,
-          `<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="${ADMOB_APP_ID}" />`,
+          `<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="${ADMOB_APP_ID}" tools:replace="android:value" />`,
         )
       } else {
         m = m.replace(/<\/application>/, `${adMeta}\n    </application>`)
