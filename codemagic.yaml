@@ -650,7 +650,7 @@ workflows:
           else
             echo "signingConfigs already present in build.gradle — assuming Capacitor template handled it"
           fi
-      - name: Align Kotlin stdlib versions (fix duplicate-class)
+      - name: Align Gradle dependency versions
         working_directory: user-project/android
         script: |
           set -euo pipefail
@@ -680,6 +680,26 @@ workflows:
             echo "✅ Appended Kotlin stdlib alignment to android/build.gradle"
           else
             echo "Kotlin stdlib alignment already present"
+          fi
+          BC_MARKER="// LOVABLE_BOUNCY_CASTLE_JDK17_ALIGN"
+          if ! grep -q "$BC_MARKER" "$ROOT_GRADLE"; then
+            {
+              echo ""
+              echo "// LOVABLE_BOUNCY_CASTLE_JDK17_ALIGN"
+              echo "allprojects {"
+              echo "    configurations.all {"
+              echo "        resolutionStrategy.eachDependency { details ->"
+              echo "            if (details.requested.group == 'org.bouncycastle') {"
+              echo "                details.useVersion '1.78.1'"
+              echo "                details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'"
+              echo "            }"
+              echo "        }"
+              echo "    }"
+              echo "}"
+            } >> "$ROOT_GRADLE"
+            echo "✅ Pinned Bouncy Castle dependencies to 1.78.1 for JDK 17 Android builds"
+          else
+            echo "Bouncy Castle JDK 17 alignment already present"
           fi
       - name: Build Android App Bundle
         working_directory: user-project/android

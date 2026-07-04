@@ -258,10 +258,20 @@ android {
 
 configurations.all {
     resolutionStrategy {
+        force 'org.bouncycastle:bcprov-jdk18on:1.78.1'
+        force 'org.bouncycastle:bcpkix-jdk18on:1.78.1'
+        force 'org.bouncycastle:bcutil-jdk18on:1.78.1'
+        force 'org.bouncycastle:bctls-jdk18on:1.78.1'
         force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.22'
         force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.22'
         force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.22'
         force 'org.jetbrains.kotlin:kotlin-stdlib-common:1.9.22'
+        eachDependency { details ->
+            if (details.requested.group == 'org.bouncycastle') {
+                details.useVersion '1.78.1'
+                details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
+            }
+        }
     }
 }
 
