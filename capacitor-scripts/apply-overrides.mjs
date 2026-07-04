@@ -464,11 +464,32 @@ allprojects {
                 details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
             }
         }
+        resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.78.1', 'org.bouncycastle:bcpkix-jdk18on:1.78.1', 'org.bouncycastle:bcutil-jdk18on:1.78.1', 'org.bouncycastle:bctls-jdk18on:1.78.1'
     }
 }
 `
       fs.writeFileSync(rootGradle, g)
       log('Pinned Bouncy Castle dependencies to 1.78.1 for JDK 17 Android builds')
+    }
+    g = fs.readFileSync(rootGradle, 'utf8')
+    if (!/LOVABLE_BOUNCY_CASTLE_BUILDSCRIPT_JDK17_ALIGN/.test(g)) {
+      g += `
+
+// LOVABLE_BOUNCY_CASTLE_BUILDSCRIPT_JDK17_ALIGN
+buildscript {
+    configurations.all {
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == 'org.bouncycastle') {
+                details.useVersion '1.78.1'
+                details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
+            }
+        }
+        resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.78.1', 'org.bouncycastle:bcpkix-jdk18on:1.78.1', 'org.bouncycastle:bcutil-jdk18on:1.78.1', 'org.bouncycastle:bctls-jdk18on:1.78.1'
+    }
+}
+`
+      fs.writeFileSync(rootGradle, g)
+      log('Pinned Bouncy Castle buildscript dependencies to 1.78.1 for JDK 17 Android builds')
     }
   }
   if (fs.existsSync(rootGradle) && fs.existsSync(path.join(root, 'app', 'google-services.json'))) {
