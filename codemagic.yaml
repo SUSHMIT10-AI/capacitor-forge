@@ -3,8 +3,45 @@ workflows:
     name: Build Android
     max_build_duration: 60
     environment:
-      java: 17
+      java: 21
     scripts:
+      - name: Install Gradle JDK 17 dependency guard
+        script: |
+          set -euo pipefail
+          mkdir -p "$HOME/.gradle/init.d"
+          cat > "$HOME/.gradle/init.d/lovable-bouncycastle-jdk17.gradle" <<'GRADLE'
+          // LOVABLE_BOUNCY_CASTLE_JDK17_INIT
+          def lovableBouncyCastleVersion = '1.78.1'
+          def lovableBouncyCastleModules = [
+              'bcprov-jdk18on',
+              'bcpkix-jdk18on',
+              'bcutil-jdk18on',
+              'bctls-jdk18on'
+          ]
+
+          def alignLovableBouncyCastle = { cfg ->
+              cfg.resolutionStrategy.eachDependency { details ->
+                  if (details.requested.group == 'org.bouncycastle') {
+                      details.useVersion lovableBouncyCastleVersion
+                      details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
+                  }
+              }
+              cfg.resolutionStrategy.force(*lovableBouncyCastleModules.collect { "org.bouncycastle:${it}:${lovableBouncyCastleVersion}" })
+          }
+
+          gradle.beforeProject { project ->
+              project.buildscript.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
+              project.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
+          }
+          GRADLE
+          rm -rf \
+            "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcprov-jdk18on/1.79" \
+            "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcpkix-jdk18on/1.79" \
+            "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcutil-jdk18on/1.79" \
+            "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bctls-jdk18on/1.79" \
+            "$HOME/.gradle/caches/jars-9"
+          grep -q 'LOVABLE_BOUNCY_CASTLE_JDK17_INIT' "$HOME/.gradle/init.d/lovable-bouncycastle-jdk17.gradle"
+          echo "✅ Gradle JDK 17 dependency guard installed."
       - name: Verify Android template exists
         script: |
           test -f "$CM_BUILD_DIR/android-template/settings.gradle"
@@ -329,6 +366,9 @@ workflows:
         working_directory: android-template
         script: |
           set -euo pipefail
+          INIT_SCRIPT="$HOME/.gradle/init.d/lovable-bouncycastle-jdk17.gradle"
+          test -f "$INIT_SCRIPT" && grep -q 'LOVABLE_BOUNCY_CASTLE_JDK17_INIT' "$INIT_SCRIPT"
+          grep -R "LOVABLE_BOUNCY_CASTLE_JDK17_ALIGN" -n build.gradle app/build.gradle || true
           BUILD_TYPE="${BUILD_TYPE:-aab}"
           echo "Building with BUILD_TYPE=$BUILD_TYPE"
           echo "VERSION_NAME=${VERSION_NAME:-<unset>} VERSION_CODE=${VERSION_CODE:-<unset>} PACKAGE_NAME=${PACKAGE_NAME:-<unset>}"
@@ -352,13 +392,13 @@ workflows:
           fi
           case "$BUILD_TYPE" in
             apk)
-              ./gradlew assembleRelease "${GRADLE_ARGS[@]}" --stacktrace --no-daemon
+              ./gradlew --init-script "$INIT_SCRIPT" --refresh-dependencies assembleRelease "${GRADLE_ARGS[@]}" --stacktrace --no-daemon
               ;;
             both)
-              ./gradlew assembleRelease bundleRelease "${GRADLE_ARGS[@]}" --stacktrace --no-daemon
+              ./gradlew --init-script "$INIT_SCRIPT" --refresh-dependencies assembleRelease bundleRelease "${GRADLE_ARGS[@]}" --stacktrace --no-daemon
               ;;
             *)
-              ./gradlew bundleRelease "${GRADLE_ARGS[@]}" --stacktrace --no-daemon
+              ./gradlew --init-script "$INIT_SCRIPT" --refresh-dependencies bundleRelease "${GRADLE_ARGS[@]}" --stacktrace --no-daemon
               ;;
           esac
       - name: Verify applicationId matches PACKAGE_NAME
@@ -485,9 +525,46 @@ workflows:
     name: Build Capacitor AAB
     max_build_duration: 90
     environment:
-      java: 17
+      java: 21
       node: 20
     scripts:
+      - name: Install Gradle JDK 17 dependency guard
+        script: |
+          set -euo pipefail
+          mkdir -p "$HOME/.gradle/init.d"
+          cat > "$HOME/.gradle/init.d/lovable-bouncycastle-jdk17.gradle" <<'GRADLE'
+          // LOVABLE_BOUNCY_CASTLE_JDK17_INIT
+          def lovableBouncyCastleVersion = '1.78.1'
+          def lovableBouncyCastleModules = [
+              'bcprov-jdk18on',
+              'bcpkix-jdk18on',
+              'bcutil-jdk18on',
+              'bctls-jdk18on'
+          ]
+
+          def alignLovableBouncyCastle = { cfg ->
+              cfg.resolutionStrategy.eachDependency { details ->
+                  if (details.requested.group == 'org.bouncycastle') {
+                      details.useVersion lovableBouncyCastleVersion
+                      details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
+                  }
+              }
+              cfg.resolutionStrategy.force(*lovableBouncyCastleModules.collect { "org.bouncycastle:${it}:${lovableBouncyCastleVersion}" })
+          }
+
+          gradle.beforeProject { project ->
+              project.buildscript.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
+              project.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
+          }
+          GRADLE
+          rm -rf \
+            "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcprov-jdk18on/1.79" \
+            "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcpkix-jdk18on/1.79" \
+            "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcutil-jdk18on/1.79" \
+            "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bctls-jdk18on/1.79" \
+            "$HOME/.gradle/caches/jars-9"
+          grep -q 'LOVABLE_BOUNCY_CASTLE_JDK17_INIT' "$HOME/.gradle/init.d/lovable-bouncycastle-jdk17.gradle"
+          echo "✅ Gradle JDK 17 dependency guard installed."
       - name: Validate Capacitor build inputs
         script: |
           set -euo pipefail
@@ -701,16 +778,21 @@ workflows:
           else
             echo "Bouncy Castle JDK 17 alignment already present"
           fi
+          INIT_SCRIPT="$HOME/.gradle/init.d/lovable-bouncycastle-jdk17.gradle"
+          test -f "$INIT_SCRIPT" && grep -q 'LOVABLE_BOUNCY_CASTLE_JDK17_INIT' "$INIT_SCRIPT"
+          grep -R "LOVABLE_BOUNCY_CASTLE_JDK17_ALIGN" -n build.gradle app/build.gradle || true
       - name: Build Android App Bundle
         working_directory: user-project/android
         script: |
           set -euo pipefail
           chmod +x ./gradlew
+          INIT_SCRIPT="$HOME/.gradle/init.d/lovable-bouncycastle-jdk17.gradle"
+          test -f "$INIT_SCRIPT" && grep -q 'LOVABLE_BOUNCY_CASTLE_JDK17_INIT' "$INIT_SCRIPT"
           BUILD_TYPE="${BUILD_TYPE:-aab}"
           case "$BUILD_TYPE" in
-            apk)  ./gradlew :app:assembleRelease --no-daemon --stacktrace ;;
-            both) ./gradlew :app:assembleRelease :app:bundleRelease --no-daemon --stacktrace ;;
-            *)    ./gradlew :app:bundleRelease --no-daemon --stacktrace ;;
+            apk)  ./gradlew --init-script "$INIT_SCRIPT" --refresh-dependencies :app:assembleRelease --no-daemon --stacktrace ;;
+            both) ./gradlew --init-script "$INIT_SCRIPT" --refresh-dependencies :app:assembleRelease :app:bundleRelease --no-daemon --stacktrace ;;
+            *)    ./gradlew --init-script "$INIT_SCRIPT" --refresh-dependencies :app:bundleRelease --no-daemon --stacktrace ;;
           esac
     artifacts:
       - user-project/android/app/build/outputs/**/*.aab
