@@ -489,13 +489,13 @@ gradle.beforeProject { project ->
 }
 allprojects { project ->
     project.buildscript.configurations.configureEach { cfg ->
-        resolutionStrategy.eachDependency { details ->
+        cfg.resolutionStrategy.eachDependency { details ->
             if (details.requested.group == 'org.bouncycastle') {
                 details.useVersion '1.78.1'
                 details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
             }
         }
-        resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.78.1', 'org.bouncycastle:bcpkix-jdk18on:1.78.1', 'org.bouncycastle:bcutil-jdk18on:1.78.1', 'org.bouncycastle:bctls-jdk18on:1.78.1'
+        cfg.resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.78.1', 'org.bouncycastle:bcpkix-jdk18on:1.78.1', 'org.bouncycastle:bcutil-jdk18on:1.78.1', 'org.bouncycastle:bctls-jdk18on:1.78.1'
     }
 }
 `
