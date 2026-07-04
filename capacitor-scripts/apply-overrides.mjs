@@ -476,8 +476,19 @@ allprojects {
       g += `
 
 // LOVABLE_BOUNCY_CASTLE_BUILDSCRIPT_JDK17_ALIGN
-buildscript {
-    configurations.all {
+gradle.beforeProject { project ->
+    project.buildscript.configurations.configureEach { cfg ->
+        cfg.resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == 'org.bouncycastle') {
+                details.useVersion '1.78.1'
+                details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
+            }
+        }
+        cfg.resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.78.1', 'org.bouncycastle:bcpkix-jdk18on:1.78.1', 'org.bouncycastle:bcutil-jdk18on:1.78.1', 'org.bouncycastle:bctls-jdk18on:1.78.1'
+    }
+}
+allprojects { project ->
+    project.buildscript.configurations.configureEach { cfg ->
         resolutionStrategy.eachDependency { details ->
             if (details.requested.group == 'org.bouncycastle') {
                 details.useVersion '1.78.1'
