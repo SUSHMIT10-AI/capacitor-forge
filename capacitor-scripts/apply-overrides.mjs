@@ -450,6 +450,27 @@ export function patchAndroid(root) {
 
   /* Root build.gradle — Google Services classpath if needed */
   const rootGradle = path.join(root, 'build.gradle')
+  if (fs.existsSync(rootGradle)) {
+    let g = fs.readFileSync(rootGradle, 'utf8')
+    if (!/LOVABLE_BOUNCY_CASTLE_JDK17_ALIGN/.test(g)) {
+      g += `
+
+// LOVABLE_BOUNCY_CASTLE_JDK17_ALIGN
+allprojects {
+    configurations.all {
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == 'org.bouncycastle') {
+                details.useVersion '1.78.1'
+                details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
+            }
+        }
+    }
+}
+`
+      fs.writeFileSync(rootGradle, g)
+      log('Pinned Bouncy Castle dependencies to 1.78.1 for JDK 17 Android builds')
+    }
+  }
   if (fs.existsSync(rootGradle) && fs.existsSync(path.join(root, 'app', 'google-services.json'))) {
     let g = fs.readFileSync(rootGradle, 'utf8')
     if (!/com\.google\.gms:google-services/.test(g)) {
