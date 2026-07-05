@@ -487,8 +487,15 @@ gradle.beforeProject { project ->
     project.buildscript.configurations.configureEach { cfg ->
         cfg.resolutionStrategy.eachDependency { details ->
             if (details.requested.group == 'org.bouncycastle') {
-                details.useVersion '1.78.1'
-                details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
+                def name = details.requested.name
+                if (name.endsWith('-jdk15on')) {
+                    def replacement = name.replace('-jdk15on', '-jdk18on')
+                    details.useTarget group: 'org.bouncycastle', name: replacement, version: '1.78.1'
+                    details.because 'Redirect legacy jdk15on to jdk18on 1.78.1 (jdk15on has no 1.78.1 release)'
+                } else if (name.endsWith('-jdk18on')) {
+                    details.useVersion '1.78.1'
+                    details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
+                }
             }
         }
         cfg.resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.78.1', 'org.bouncycastle:bcpkix-jdk18on:1.78.1', 'org.bouncycastle:bcutil-jdk18on:1.78.1', 'org.bouncycastle:bctls-jdk18on:1.78.1'
@@ -498,8 +505,15 @@ allprojects { project ->
     project.buildscript.configurations.configureEach { cfg ->
         cfg.resolutionStrategy.eachDependency { details ->
             if (details.requested.group == 'org.bouncycastle') {
-                details.useVersion '1.78.1'
-                details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
+                def name = details.requested.name
+                if (name.endsWith('-jdk15on')) {
+                    def replacement = name.replace('-jdk15on', '-jdk18on')
+                    details.useTarget group: 'org.bouncycastle', name: replacement, version: '1.78.1'
+                    details.because 'Redirect legacy jdk15on to jdk18on 1.78.1 (jdk15on has no 1.78.1 release)'
+                } else if (name.endsWith('-jdk18on')) {
+                    details.useVersion '1.78.1'
+                    details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
+                }
             }
         }
         cfg.resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.78.1', 'org.bouncycastle:bcpkix-jdk18on:1.78.1', 'org.bouncycastle:bcutil-jdk18on:1.78.1', 'org.bouncycastle:bctls-jdk18on:1.78.1'
