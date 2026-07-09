@@ -258,6 +258,10 @@ android {
 
 configurations.all {
     resolutionStrategy {
+        force 'org.bouncycastle:bcprov-jdk15on:1.70'
+        force 'org.bouncycastle:bcpkix-jdk15on:1.70'
+        force 'org.bouncycastle:bcutil-jdk15on:1.70'
+        force 'org.bouncycastle:bctls-jdk15on:1.70'
         force 'org.bouncycastle:bcprov-jdk18on:1.78.1'
         force 'org.bouncycastle:bcpkix-jdk18on:1.78.1'
         force 'org.bouncycastle:bcutil-jdk18on:1.78.1'
@@ -271,10 +275,9 @@ configurations.all {
                 def name = details.requested.name
                 if (name.endsWith('-jdk15on')) {
                     // jdk15on was never published at 1.78.1 (last was 1.70).
-                    // Redirect to the JDK 17-safe jdk18on 1.78.1 artifact instead.
-                    def replacement = name.replace('-jdk15on', '-jdk18on')
-                    details.useTarget group: 'org.bouncycastle', name: replacement, version: '1.78.1'
-                    details.because 'Redirect legacy jdk15on to jdk18on 1.78.1 (jdk15on has no 1.78.1 release)'
+                    // Keep legacy AGP/buildscript requests on the latest real jdk15on release.
+                    details.useVersion '1.70'
+                    details.because 'Bouncy Castle jdk15on artifacts stop at 1.70; never request non-existent jdk15on 1.78.1'
                 } else if (name.endsWith('-jdk18on')) {
                     details.useVersion '1.78.1'
                     details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'

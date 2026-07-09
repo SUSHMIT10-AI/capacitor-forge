@@ -1,3 +1,49 @@
+// LOVABLE_REPOSITORY_RESOLUTION_GUARD
+buildscript {
+    repositories {
+        mavenCentral()
+        google()
+        gradlePluginPortal()
+    }
+    configurations.configureEach { cfg ->
+        cfg.resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == 'org.bouncycastle') {
+                def name = details.requested.name
+                if (name.endsWith('-jdk15on')) {
+                    details.useVersion '1.70'
+                    details.because 'Bouncy Castle jdk15on artifacts stop at 1.70; never request non-existent jdk15on 1.78.1'
+                } else if (name.endsWith('-jdk18on')) {
+                    details.useVersion '1.78.1'
+                    details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
+                }
+            }
+        }
+        cfg.resolutionStrategy.force 'org.bouncycastle:bcprov-jdk15on:1.70', 'org.bouncycastle:bcpkix-jdk15on:1.70', 'org.bouncycastle:bcutil-jdk15on:1.70', 'org.bouncycastle:bctls-jdk15on:1.70', 'org.bouncycastle:bcprov-jdk18on:1.78.1', 'org.bouncycastle:bcpkix-jdk18on:1.78.1', 'org.bouncycastle:bcutil-jdk18on:1.78.1', 'org.bouncycastle:bctls-jdk18on:1.78.1'
+    }
+}
+
 plugins {
     id 'com.android.application' version '8.6.1' apply false
+}
+
+allprojects {
+    repositories {
+        mavenCentral()
+        google()
+    }
+    configurations.configureEach { cfg ->
+        cfg.resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == 'org.bouncycastle') {
+                def name = details.requested.name
+                if (name.endsWith('-jdk15on')) {
+                    details.useVersion '1.70'
+                    details.because 'Bouncy Castle jdk15on artifacts stop at 1.70; never request non-existent jdk15on 1.78.1'
+                } else if (name.endsWith('-jdk18on')) {
+                    details.useVersion '1.78.1'
+                    details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
+                }
+            }
+        }
+        cfg.resolutionStrategy.force 'org.bouncycastle:bcprov-jdk15on:1.70', 'org.bouncycastle:bcpkix-jdk15on:1.70', 'org.bouncycastle:bcutil-jdk15on:1.70', 'org.bouncycastle:bctls-jdk15on:1.70', 'org.bouncycastle:bcprov-jdk18on:1.78.1', 'org.bouncycastle:bcpkix-jdk18on:1.78.1', 'org.bouncycastle:bcutil-jdk18on:1.78.1', 'org.bouncycastle:bctls-jdk18on:1.78.1'
+    }
 }

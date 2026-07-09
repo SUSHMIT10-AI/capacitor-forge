@@ -3,7 +3,7 @@ workflows:
     name: Build Android
     max_build_duration: 60
     environment:
-      java: 21
+      java: 17
     scripts:
       - name: Install Gradle JDK 17 dependency guard
         script: |
@@ -11,32 +11,44 @@ workflows:
           mkdir -p "$HOME/.gradle/init.d"
           cat > "$HOME/.gradle/init.d/lovable-bouncycastle-jdk17.gradle" <<'GRADLE'
           // LOVABLE_BOUNCY_CASTLE_JDK17_INIT
-          def lovableBouncyCastleVersion = '1.78.1'
-          def lovableBouncyCastleModules = [
-              'bcprov-jdk18on',
-              'bcpkix-jdk18on',
-              'bcutil-jdk18on',
-              'bctls-jdk18on'
-          ]
+          def lovableBouncyCastleLegacyVersion = '1.70'
+          def lovableBouncyCastleModernVersion = '1.78.1'
 
           def alignLovableBouncyCastle = { cfg ->
               cfg.resolutionStrategy.eachDependency { details ->
                   if (details.requested.group == 'org.bouncycastle') {
                       def name = details.requested.name
                       if (name.endsWith('-jdk15on')) {
-                          def replacement = name.replace('-jdk15on', '-jdk18on')
-                          details.useTarget group: 'org.bouncycastle', name: replacement, version: lovableBouncyCastleVersion
-                          details.because 'Redirect legacy jdk15on to jdk18on 1.78.1 (jdk15on has no 1.78.1 release)'
+                          details.useVersion lovableBouncyCastleLegacyVersion
+                          details.because 'Bouncy Castle jdk15on artifacts stop at 1.70; never request non-existent jdk15on 1.78.1'
                       } else if (name.endsWith('-jdk18on')) {
-                          details.useVersion lovableBouncyCastleVersion
+                          details.useVersion lovableBouncyCastleModernVersion
                           details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
                       }
                   }
               }
-              cfg.resolutionStrategy.force(*lovableBouncyCastleModules.collect { "org.bouncycastle:${it}:${lovableBouncyCastleVersion}" })
+              cfg.resolutionStrategy.force(
+                  'org.bouncycastle:bcprov-jdk15on:1.70',
+                  'org.bouncycastle:bcpkix-jdk15on:1.70',
+                  'org.bouncycastle:bcutil-jdk15on:1.70',
+                  'org.bouncycastle:bctls-jdk15on:1.70',
+                  'org.bouncycastle:bcprov-jdk18on:1.78.1',
+                  'org.bouncycastle:bcpkix-jdk18on:1.78.1',
+                  'org.bouncycastle:bcutil-jdk18on:1.78.1',
+                  'org.bouncycastle:bctls-jdk18on:1.78.1'
+              )
           }
 
           gradle.beforeProject { project ->
+              project.buildscript.repositories { repos ->
+                  repos.mavenCentral()
+                  repos.google()
+                  repos.gradlePluginPortal()
+              }
+              project.repositories { repos ->
+                  repos.mavenCentral()
+                  repos.google()
+              }
               project.buildscript.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
               project.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
           }
@@ -46,6 +58,10 @@ workflows:
             "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcpkix-jdk18on/1.79" \
             "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcutil-jdk18on/1.79" \
             "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bctls-jdk18on/1.79" \
+            "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcprov-jdk15on/1.78.1" \
+            "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcpkix-jdk15on/1.78.1" \
+            "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcutil-jdk15on/1.78.1" \
+            "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bctls-jdk15on/1.78.1" \
             "$HOME/.gradle/caches/jars-9"
           grep -q 'LOVABLE_BOUNCY_CASTLE_JDK17_INIT' "$HOME/.gradle/init.d/lovable-bouncycastle-jdk17.gradle"
           echo "✅ Gradle JDK 17 dependency guard installed."
@@ -532,7 +548,7 @@ workflows:
     name: Build Capacitor AAB
     max_build_duration: 90
     environment:
-      java: 21
+      java: 17
       node: 20
     scripts:
       - name: Install Gradle JDK 17 dependency guard
@@ -541,32 +557,44 @@ workflows:
           mkdir -p "$HOME/.gradle/init.d"
           cat > "$HOME/.gradle/init.d/lovable-bouncycastle-jdk17.gradle" <<'GRADLE'
           // LOVABLE_BOUNCY_CASTLE_JDK17_INIT
-          def lovableBouncyCastleVersion = '1.78.1'
-          def lovableBouncyCastleModules = [
-              'bcprov-jdk18on',
-              'bcpkix-jdk18on',
-              'bcutil-jdk18on',
-              'bctls-jdk18on'
-          ]
+          def lovableBouncyCastleLegacyVersion = '1.70'
+          def lovableBouncyCastleModernVersion = '1.78.1'
 
           def alignLovableBouncyCastle = { cfg ->
               cfg.resolutionStrategy.eachDependency { details ->
                   if (details.requested.group == 'org.bouncycastle') {
                       def name = details.requested.name
                       if (name.endsWith('-jdk15on')) {
-                          def replacement = name.replace('-jdk15on', '-jdk18on')
-                          details.useTarget group: 'org.bouncycastle', name: replacement, version: lovableBouncyCastleVersion
-                          details.because 'Redirect legacy jdk15on to jdk18on 1.78.1 (jdk15on has no 1.78.1 release)'
+                          details.useVersion lovableBouncyCastleLegacyVersion
+                          details.because 'Bouncy Castle jdk15on artifacts stop at 1.70; never request non-existent jdk15on 1.78.1'
                       } else if (name.endsWith('-jdk18on')) {
-                          details.useVersion lovableBouncyCastleVersion
+                          details.useVersion lovableBouncyCastleModernVersion
                           details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
                       }
                   }
               }
-              cfg.resolutionStrategy.force(*lovableBouncyCastleModules.collect { "org.bouncycastle:${it}:${lovableBouncyCastleVersion}" })
+              cfg.resolutionStrategy.force(
+                  'org.bouncycastle:bcprov-jdk15on:1.70',
+                  'org.bouncycastle:bcpkix-jdk15on:1.70',
+                  'org.bouncycastle:bcutil-jdk15on:1.70',
+                  'org.bouncycastle:bctls-jdk15on:1.70',
+                  'org.bouncycastle:bcprov-jdk18on:1.78.1',
+                  'org.bouncycastle:bcpkix-jdk18on:1.78.1',
+                  'org.bouncycastle:bcutil-jdk18on:1.78.1',
+                  'org.bouncycastle:bctls-jdk18on:1.78.1'
+              )
           }
 
           gradle.beforeProject { project ->
+              project.buildscript.repositories { repos ->
+                  repos.mavenCentral()
+                  repos.google()
+                  repos.gradlePluginPortal()
+              }
+              project.repositories { repos ->
+                  repos.mavenCentral()
+                  repos.google()
+              }
               project.buildscript.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
               project.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
           }
@@ -576,6 +604,10 @@ workflows:
             "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcpkix-jdk18on/1.79" \
             "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcutil-jdk18on/1.79" \
             "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bctls-jdk18on/1.79" \
+            "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcprov-jdk15on/1.78.1" \
+            "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcpkix-jdk15on/1.78.1" \
+            "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcutil-jdk15on/1.78.1" \
+            "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bctls-jdk15on/1.78.1" \
             "$HOME/.gradle/caches/jars-9"
           grep -q 'LOVABLE_BOUNCY_CASTLE_JDK17_INIT' "$HOME/.gradle/init.d/lovable-bouncycastle-jdk17.gradle"
           echo "✅ Gradle JDK 17 dependency guard installed."
@@ -783,15 +815,15 @@ workflows:
               echo "            if (details.requested.group == 'org.bouncycastle') {"
               echo "                def name = details.requested.name"
               echo "                if (name.endsWith('-jdk15on')) {"
-              echo "                    def replacement = name.replace('-jdk15on', '-jdk18on')"
-              echo "                    details.useTarget group: 'org.bouncycastle', name: replacement, version: '1.78.1'"
-              echo "                    details.because 'Redirect legacy jdk15on to jdk18on 1.78.1 (jdk15on has no 1.78.1 release)'"
+              echo "                    details.useVersion '1.70'"
+              echo "                    details.because 'Bouncy Castle jdk15on artifacts stop at 1.70; never request non-existent jdk15on 1.78.1'"
               echo "                } else if (name.endsWith('-jdk18on')) {"
               echo "                    details.useVersion '1.78.1'"
               echo "                    details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'"
               echo "                }"
               echo "            }"
               echo "        }"
+              echo "        resolutionStrategy.force 'org.bouncycastle:bcprov-jdk15on:1.70', 'org.bouncycastle:bcpkix-jdk15on:1.70', 'org.bouncycastle:bcutil-jdk15on:1.70', 'org.bouncycastle:bctls-jdk15on:1.70', 'org.bouncycastle:bcprov-jdk18on:1.78.1', 'org.bouncycastle:bcpkix-jdk18on:1.78.1', 'org.bouncycastle:bcutil-jdk18on:1.78.1', 'org.bouncycastle:bctls-jdk18on:1.78.1'"
               echo "    }"
               echo "}"
             } >> "$ROOT_GRADLE"
