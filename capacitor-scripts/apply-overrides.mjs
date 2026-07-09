@@ -62,6 +62,49 @@ if (ADMOB_APP_ID && !/^ca-app-pub-\d+~\d+$/.test(ADMOB_APP_ID)) {
 const log = (...a) => console.log('[apply-overrides]', ...a)
 const warn = (...a) => console.warn('[apply-overrides][warn]', ...a)
 
+function ensureRepositoryOrder(source) {
+  const repoBlock = `repositories {
+        mavenCentral()
+        google()
+        gradlePluginPortal()
+    }`
+  const dependencyRepoBlock = `repositories {
+        mavenCentral()
+        google()
+    }`
+
+  let next = source
+  if (/pluginManagement\s*\{[\s\S]*?repositories\s*\{/m.test(next)) {
+    next = next.replace(
+      /pluginManagement\s*\{[\s\S]*?repositories\s*\{[\s\S]*?\n\s*\}[\s\S]*?\n\s*\}/m,
+      `pluginManagement {\n    ${repoBlock}\n}`,
+    )
+  } else {
+    next = `pluginManagement {\n    ${repoBlock}\n}\n\n${next}`
+  }
+
+  if (/dependencyResolutionManagement\s*\{[\s\S]*?repositories\s*\{/m.test(next)) {
+    next = next.replace(
+      /dependencyResolutionManagement\s*\{[\s\S]*?repositoriesMode\.set\([^)]*\)[\s\S]*?repositories\s*\{[\s\S]*?\n\s*\}[\s\S]*?\n\s*\}/m,
+      `dependencyResolutionManagement {\n    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)\n    ${dependencyRepoBlock}\n}`,
+    )
+    next = next.replace(
+      /dependencyResolutionManagement\s*\{(?![\s\S]*?repositoriesMode\.set)[\s\S]*?repositories\s*\{[\s\S]*?\n\s*\}[\s\S]*?\n\s*\}/m,
+      `dependencyResolutionManagement {\n    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)\n    ${dependencyRepoBlock}\n}`,
+    )
+  } else {
+    const block = `dependencyResolutionManagement {\n    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)\n    ${dependencyRepoBlock}\n}\n\n`
+    const pluginMatch = next.match(/pluginManagement\s*\{[\s\S]*?\n\}/m)
+    if (pluginMatch) {
+      next = next.replace(pluginMatch[0], `${pluginMatch[0]}\n\n${block.trimEnd()}`)
+    } else {
+      next = `${block}${next}`
+    }
+  }
+
+  return next
+}
+
 /* ---------- Supported Capacitor plugin catalog ----------
  * Plugins listed here will be auto-installed when:
  *   a) the user's package.json already references them (detected)
@@ -396,13 +439,9 @@ export function patchAndroid(root) {
   const settingsGradle = path.join(root, 'settings.gradle')
   if (fs.existsSync(settingsGradle)) {
     let s = fs.readFileSync(settingsGradle, 'utf8')
-    if (!/LOVABLE_REPOSITORY_RESOLUTION_GUARD/.test(s)) {
-      s += `
-
-// LOVABLE_REPOSITORY_RESOLUTION_GUARD
-pluginManagement { repositories { mavenCentral(); google(); gradlePluginPortal() } }
-dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS); repositories { mavenCentral(); google() } }
-`
+    const patched = ensureRepositoryOrder(s)
+    if (patched !== s) {
+      s = patched
       fs.writeFileSync(settingsGradle, s)
       log('Ensured Maven Central / Google repositories in settings.gradle')
     }
