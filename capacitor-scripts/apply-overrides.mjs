@@ -106,9 +106,19 @@ function ensureRepositoryOrder(source) {
 }
 
 function repairBouncyCastleAlignment(source) {
+  const staleRewrite = new RegExp(
+    String.raw`\s*def replacement = name\.replace\('-jdk15on', '-jdk18on'\)\n` +
+      String.raw`\s*details\.useTarget group: 'org\.bouncycastle', name: replacement, version: '1\.78\.1'\n` +
+      String.raw`\s*details\.because 'Redirect legacy jdk15on to jdk18on 1\.78\.1 \(jdk15on has no 1\.78\.1 release\)'`,
+    'g',
+  )
+  const staleReason = new RegExp(
+    String.raw`Redirect legacy jdk15on to jdk18on 1\.78\.1 \(jdk15on has no 1\.78\.1 release\)`,
+    'g',
+  )
   return source
     .replace(
-      /\s*def replacement = name\.replace\('-jdk15on', '-jdk18on'\)\n\s*details\.useTarget group: 'org\.bouncycastle', name: replacement, version: '1\.78\.1'\n\s*details\.because 'Redirect legacy jdk15on to jdk18on 1\.78\.1 \(jdk15on has no 1\.78\.1 release\)'/g,
+      staleRewrite,
       `
                     details.useVersion '1.70'
                     details.because 'Bouncy Castle jdk15on artifacts stop at 1.70; never request non-existent jdk15on 1.78.1'`,
@@ -117,10 +127,7 @@ function repairBouncyCastleAlignment(source) {
       /org\.bouncycastle:([A-Za-z0-9-]+-jdk15on):1\.78\.1/g,
       'org.bouncycastle:$1:1.70',
     )
-    .replace(
-      /Redirect legacy jdk15on to jdk18on 1\.78\.1 \(jdk15on has no 1\.78\.1 release\)/g,
-      'Bouncy Castle jdk15on artifacts stop at 1.70; never request non-existent jdk15on 1.78.1',
-    )
+    .replace(staleReason, 'Bouncy Castle jdk15on artifacts stop at 1.70; never request non-existent jdk15on 1.78.1')
 }
 
 /* ---------- Supported Capacitor plugin catalog ----------
