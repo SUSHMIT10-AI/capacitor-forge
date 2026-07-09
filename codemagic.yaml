@@ -39,18 +39,6 @@ workflows:
               )
           }
 
-          gradle.settingsEvaluated { settings ->
-              settings.pluginManagement.repositories { repos ->
-                  repos.mavenCentral()
-                  repos.google()
-                  repos.gradlePluginPortal()
-              }
-              settings.dependencyResolutionManagement.repositories { repos ->
-                  repos.mavenCentral()
-                  repos.google()
-              }
-          }
-
           gradle.beforeProject { project ->
               project.buildscript.repositories { repos ->
                   repos.mavenCentral()
@@ -595,18 +583,6 @@ workflows:
                   'org.bouncycastle:bcutil-jdk18on:1.78.1',
                   'org.bouncycastle:bctls-jdk18on:1.78.1'
               )
-          }
-
-          gradle.settingsEvaluated { settings ->
-              settings.pluginManagement.repositories { repos ->
-                  repos.mavenCentral()
-                  repos.google()
-                  repos.gradlePluginPortal()
-              }
-              settings.dependencyResolutionManagement.repositories { repos ->
-                  repos.mavenCentral()
-                  repos.google()
-              }
           }
 
           gradle.beforeProject { project ->
