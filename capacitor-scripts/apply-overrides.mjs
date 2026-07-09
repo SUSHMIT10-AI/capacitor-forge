@@ -390,6 +390,24 @@ if (fs.existsSync(androidDir)) {
 }
 
 export function patchAndroid(root) {
+  /* settings.gradle — make Maven Central available before Google/Plugin Portal so
+   * legacy AGP buildscript deps (notably Bouncy Castle jdk15on) resolve reliably.
+   */
+  const settingsGradle = path.join(root, 'settings.gradle')
+  if (fs.existsSync(settingsGradle)) {
+    let s = fs.readFileSync(settingsGradle, 'utf8')
+    if (!/LOVABLE_REPOSITORY_RESOLUTION_GUARD/.test(s)) {
+      s += `
+
+// LOVABLE_REPOSITORY_RESOLUTION_GUARD
+pluginManagement { repositories { mavenCentral(); google(); gradlePluginPortal() } }
+dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS); repositories { mavenCentral(); google() } }
+`
+      fs.writeFileSync(settingsGradle, s)
+      log('Ensured Maven Central / Google repositories in settings.gradle')
+    }
+  }
+
   /* gradle.properties — AndroidX, Jetifier, MultiDex */
   const gradleProps = path.join(root, 'gradle.properties')
   const requiredProps = {
@@ -462,16 +480,15 @@ allprojects {
             if (details.requested.group == 'org.bouncycastle') {
                 def name = details.requested.name
                 if (name.endsWith('-jdk15on')) {
-                    def replacement = name.replace('-jdk15on', '-jdk18on')
-                    details.useTarget group: 'org.bouncycastle', name: replacement, version: '1.78.1'
-                    details.because 'Redirect legacy jdk15on to jdk18on 1.78.1 (jdk15on has no 1.78.1 release)'
+                    details.useVersion '1.70'
+                    details.because 'Bouncy Castle jdk15on artifacts stop at 1.70; never request non-existent jdk15on 1.78.1'
                 } else if (name.endsWith('-jdk18on')) {
                     details.useVersion '1.78.1'
                     details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
                 }
             }
         }
-        resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.78.1', 'org.bouncycastle:bcpkix-jdk18on:1.78.1', 'org.bouncycastle:bcutil-jdk18on:1.78.1', 'org.bouncycastle:bctls-jdk18on:1.78.1'
+        resolutionStrategy.force 'org.bouncycastle:bcprov-jdk15on:1.70', 'org.bouncycastle:bcpkix-jdk15on:1.70', 'org.bouncycastle:bcutil-jdk15on:1.70', 'org.bouncycastle:bctls-jdk15on:1.70', 'org.bouncycastle:bcprov-jdk18on:1.78.1', 'org.bouncycastle:bcpkix-jdk18on:1.78.1', 'org.bouncycastle:bcutil-jdk18on:1.78.1', 'org.bouncycastle:bctls-jdk18on:1.78.1'
     }
 }
 `
@@ -484,39 +501,55 @@ allprojects {
 
 // LOVABLE_BOUNCY_CASTLE_BUILDSCRIPT_JDK17_ALIGN
 gradle.beforeProject { project ->
+    project.buildscript.repositories { repos ->
+        repos.mavenCentral()
+        repos.google()
+        repos.gradlePluginPortal()
+    }
+    project.repositories { repos ->
+        repos.mavenCentral()
+        repos.google()
+    }
     project.buildscript.configurations.configureEach { cfg ->
         cfg.resolutionStrategy.eachDependency { details ->
             if (details.requested.group == 'org.bouncycastle') {
                 def name = details.requested.name
                 if (name.endsWith('-jdk15on')) {
-                    def replacement = name.replace('-jdk15on', '-jdk18on')
-                    details.useTarget group: 'org.bouncycastle', name: replacement, version: '1.78.1'
-                    details.because 'Redirect legacy jdk15on to jdk18on 1.78.1 (jdk15on has no 1.78.1 release)'
+                    details.useVersion '1.70'
+                    details.because 'Bouncy Castle jdk15on artifacts stop at 1.70; never request non-existent jdk15on 1.78.1'
                 } else if (name.endsWith('-jdk18on')) {
                     details.useVersion '1.78.1'
                     details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
                 }
             }
         }
-        cfg.resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.78.1', 'org.bouncycastle:bcpkix-jdk18on:1.78.1', 'org.bouncycastle:bcutil-jdk18on:1.78.1', 'org.bouncycastle:bctls-jdk18on:1.78.1'
+        cfg.resolutionStrategy.force 'org.bouncycastle:bcprov-jdk15on:1.70', 'org.bouncycastle:bcpkix-jdk15on:1.70', 'org.bouncycastle:bcutil-jdk15on:1.70', 'org.bouncycastle:bctls-jdk15on:1.70', 'org.bouncycastle:bcprov-jdk18on:1.78.1', 'org.bouncycastle:bcpkix-jdk18on:1.78.1', 'org.bouncycastle:bcutil-jdk18on:1.78.1', 'org.bouncycastle:bctls-jdk18on:1.78.1'
     }
 }
 allprojects { project ->
+    project.buildscript.repositories { repos ->
+        repos.mavenCentral()
+        repos.google()
+        repos.gradlePluginPortal()
+    }
+    project.repositories { repos ->
+        repos.mavenCentral()
+        repos.google()
+    }
     project.buildscript.configurations.configureEach { cfg ->
         cfg.resolutionStrategy.eachDependency { details ->
             if (details.requested.group == 'org.bouncycastle') {
                 def name = details.requested.name
                 if (name.endsWith('-jdk15on')) {
-                    def replacement = name.replace('-jdk15on', '-jdk18on')
-                    details.useTarget group: 'org.bouncycastle', name: replacement, version: '1.78.1'
-                    details.because 'Redirect legacy jdk15on to jdk18on 1.78.1 (jdk15on has no 1.78.1 release)'
+                    details.useVersion '1.70'
+                    details.because 'Bouncy Castle jdk15on artifacts stop at 1.70; never request non-existent jdk15on 1.78.1'
                 } else if (name.endsWith('-jdk18on')) {
                     details.useVersion '1.78.1'
                     details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
                 }
             }
         }
-        cfg.resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.78.1', 'org.bouncycastle:bcpkix-jdk18on:1.78.1', 'org.bouncycastle:bcutil-jdk18on:1.78.1', 'org.bouncycastle:bctls-jdk18on:1.78.1'
+        cfg.resolutionStrategy.force 'org.bouncycastle:bcprov-jdk15on:1.70', 'org.bouncycastle:bcpkix-jdk15on:1.70', 'org.bouncycastle:bcutil-jdk15on:1.70', 'org.bouncycastle:bctls-jdk15on:1.70', 'org.bouncycastle:bcprov-jdk18on:1.78.1', 'org.bouncycastle:bcpkix-jdk18on:1.78.1', 'org.bouncycastle:bcutil-jdk18on:1.78.1', 'org.bouncycastle:bctls-jdk18on:1.78.1'
     }
 }
 `
