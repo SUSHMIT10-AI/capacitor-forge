@@ -3,7 +3,7 @@ workflows:
     name: Build Android
     max_build_duration: 60
     environment:
-      java: 21
+      java: 17
     scripts:
       - name: Install Gradle JDK 17 dependency guard
         script: |
@@ -548,7 +548,7 @@ workflows:
     name: Build Capacitor AAB
     max_build_duration: 90
     environment:
-      java: 21
+      java: 17
       node: 20
     scripts:
       - name: Install Gradle JDK 17 dependency guard

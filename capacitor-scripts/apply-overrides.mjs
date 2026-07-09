@@ -105,6 +105,24 @@ function ensureRepositoryOrder(source) {
   return next
 }
 
+function repairBouncyCastleAlignment(source) {
+  return source
+    .replace(
+      /\s*def replacement = name\.replace\('-jdk15on', '-jdk18on'\)\n\s*details\.useTarget group: 'org\.bouncycastle', name: replacement, version: '1\.78\.1'\n\s*details\.because 'Redirect legacy jdk15on to jdk18on 1\.78\.1 \(jdk15on has no 1\.78\.1 release\)'/g,
+      `
+                    details.useVersion '1.70'
+                    details.because 'Bouncy Castle jdk15on artifacts stop at 1.70; never request non-existent jdk15on 1.78.1'`,
+    )
+    .replace(
+      /org\.bouncycastle:([A-Za-z0-9-]+-jdk15on):1\.78\.1/g,
+      'org.bouncycastle:$1:1.70',
+    )
+    .replace(
+      /Redirect legacy jdk15on to jdk18on 1\.78\.1 \(jdk15on has no 1\.78\.1 release\)/g,
+      'Bouncy Castle jdk15on artifacts stop at 1.70; never request non-existent jdk15on 1.78.1',
+    )
+}
+
 /* ---------- Supported Capacitor plugin catalog ----------
  * Plugins listed here will be auto-installed when:
  *   a) the user's package.json already references them (detected)
@@ -509,6 +527,12 @@ export function patchAndroid(root) {
   const rootGradle = path.join(root, 'build.gradle')
   if (fs.existsSync(rootGradle)) {
     let g = fs.readFileSync(rootGradle, 'utf8')
+    const repaired = repairBouncyCastleAlignment(g)
+    if (repaired !== g) {
+      g = repaired
+      fs.writeFileSync(rootGradle, g)
+      log('Repaired stale Bouncy Castle jdk15on alignment in root build.gradle')
+    }
     if (!/LOVABLE_BOUNCY_CASTLE_JDK17_ALIGN/.test(g)) {
       g += `
 

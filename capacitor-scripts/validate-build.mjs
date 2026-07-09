@@ -31,6 +31,8 @@ const androidDir = path.join(PROJECT_DIR, 'android')
 const appDir = path.join(androidDir, 'app')
 const manifestPath = path.join(appDir, 'src', 'main', 'AndroidManifest.xml')
 const buildGradle = path.join(appDir, 'build.gradle')
+const rootBuildGradle = path.join(androidDir, 'build.gradle')
+const settingsGradle = path.join(androidDir, 'settings.gradle')
 const capConfigJson = path.join(PROJECT_DIR, 'capacitor.config.json')
 const capConfigTs = path.join(PROJECT_DIR, 'capacitor.config.ts')
 const pkgJson = path.join(PROJECT_DIR, 'package.json')
@@ -47,9 +49,37 @@ if (!fs.existsSync(androidDir)) {
 } else {
   ok('android project present')
   if (!fs.existsSync(buildGradle)) fail('android/app/build.gradle missing')
+  if (!fs.existsSync(rootBuildGradle)) fail('android/build.gradle missing')
+  if (!fs.existsSync(settingsGradle)) fail('android/settings.gradle missing')
   if (!fs.existsSync(manifestPath)) fail('AndroidManifest.xml missing')
   if (!fs.existsSync(path.join(androidDir, 'gradlew')))
     fail('android/gradlew missing — generated project is incomplete')
+}
+
+for (const gradleFile of [rootBuildGradle, buildGradle, settingsGradle]) {
+  if (!fs.existsSync(gradleFile)) continue
+  const contents = fs.readFileSync(gradleFile, 'utf8')
+  const label = path.relative(PROJECT_DIR, gradleFile)
+  if (/org\.bouncycastle:[^\s'",]+-jdk15on:1\.78\.1/.test(contents)) {
+    fail(`${label} requests non-existent Bouncy Castle jdk15on 1.78.1 artifacts`)
+  }
+  if (/Redirect legacy jdk15on to jdk18on|name\.replace\('-jdk15on', '-jdk18on'\)/.test(contents)) {
+    fail(`${label} contains stale Bouncy Castle jdk15on→jdk18on rewrite; use jdk15on 1.70 instead`)
+  }
+}
+
+if (fs.existsSync(rootBuildGradle)) {
+  const g = fs.readFileSync(rootBuildGradle, 'utf8')
+  if (!/LOVABLE_BOUNCY_CASTLE_JDK17_ALIGN/.test(g)) {
+    warn('android/build.gradle has no Bouncy Castle alignment marker — apply-overrides should inject it before assembly')
+  }
+}
+
+if (fs.existsSync(settingsGradle)) {
+  const s = fs.readFileSync(settingsGradle, 'utf8')
+  if (!/mavenCentral\(\)[\s\S]*google\(\)/.test(s)) {
+    fail('android/settings.gradle must declare mavenCentral() before google() for reliable dependency resolution')
+  }
 }
 
 if (fs.existsSync(manifestPath)) {
