@@ -1,7 +1,7 @@
 ## Plan
 
 1. Add an early Codemagic guard that writes a Gradle init script before any Android Gradle command runs.
-   - It will force every `org.bouncycastle` module to `1.78.1` for both normal project dependencies and Gradle/buildscript classpaths.
+   - It will redirect every `org.bouncycastle` `jdk18on` request to the available `jdk15on:1.70` artifacts for both normal project dependencies and Gradle/buildscript classpaths.
    - This is stronger than the current `allprojects { configurations.all { ... } }` patch, which can miss dependencies resolved before the root project configuration is applied.
 
 2. Apply the same guard to both build workflows.
@@ -21,4 +21,4 @@
 
 ## Technical details
 
-The failure still mentions `bcprov-jdk18on-1.79.jar`, so the current dependency resolution block is not catching the path that pulls Bouncy Castle into Gradle’s instrumented classpath. A Gradle init script is the safest fix because it is loaded before the build itself and can apply resolution rules broadly across projects and buildscript configurations.
+The latest failure mentions `bcprov-jdk18on-1.78.1.jar`, so `1.78.1` still contains Java 21 multi-release classes that Gradle on JDK 17 cannot instrument. The fix is to keep Bouncy Castle on the older `jdk15on:1.70` line and redirect `jdk18on` requests there before Gradle resolves the buildscript classpath.

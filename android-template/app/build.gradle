@@ -262,10 +262,6 @@ configurations.all {
         force 'org.bouncycastle:bcpkix-jdk15on:1.70'
         force 'org.bouncycastle:bcutil-jdk15on:1.70'
         force 'org.bouncycastle:bctls-jdk15on:1.70'
-        force 'org.bouncycastle:bcprov-jdk18on:1.78.1'
-        force 'org.bouncycastle:bcpkix-jdk18on:1.78.1'
-        force 'org.bouncycastle:bcutil-jdk18on:1.78.1'
-        force 'org.bouncycastle:bctls-jdk18on:1.78.1'
         force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.22'
         force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.22'
         force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.22'
@@ -277,10 +273,11 @@ configurations.all {
                     // jdk15on was never published at 1.78.1 (last was 1.70).
                     // Keep legacy AGP/buildscript requests on the latest real jdk15on release.
                     details.useVersion '1.70'
-                    details.because 'Bouncy Castle jdk15on artifacts stop at 1.70; never request non-existent jdk15on 1.78.1'
+                    details.because 'Bouncy Castle jdk15on 1.70 avoids Java 21 bytecode in newer multi-release jars'
                 } else if (name.endsWith('-jdk18on')) {
-                    details.useVersion '1.78.1'
-                    details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
+                    def replacement = name.replace('-jdk18on', '-jdk15on')
+                    details.useTarget group: 'org.bouncycastle', name: replacement, version: '1.70'
+                    details.because 'Use Bouncy Castle jdk15on 1.70 because jdk18on 1.78+ ships Java 21 classes that Gradle on JDK 17 cannot instrument'
                 }
             }
         }
