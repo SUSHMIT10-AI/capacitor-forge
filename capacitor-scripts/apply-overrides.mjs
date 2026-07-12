@@ -127,7 +127,9 @@ function repairBouncyCastleAlignment(source) {
       /org\.bouncycastle:([A-Za-z0-9-]+-jdk15on):1\.78\.1/g,
       'org.bouncycastle:$1:1.70',
     )
-    .replace(/org\.bouncycastle:[A-Za-z0-9-]+-jdk18on:1\.78\.1,?\s*/g, '')
+    .replace(/['"]org\.bouncycastle:[A-Za-z0-9-]+-jdk18on:1\.78\.1['"],?\s*/g, '')
+    .replace(/,\s*'/g, ", '")
+    .replace(/force\s+,\s*/g, 'force ')
     .replace(
       /details\.useVersion '1\.78\.1'\n\s*details\.because 'Bouncy Castle 1\.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'/g,
       `def replacement = name.replace('-jdk18on', '-jdk15on')
