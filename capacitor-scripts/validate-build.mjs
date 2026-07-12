@@ -63,6 +63,12 @@ for (const gradleFile of [rootBuildGradle, buildGradle, settingsGradle]) {
   if (/org\.bouncycastle:[^\s'",]+-jdk15on:1\.78\.1/.test(contents)) {
     fail(`${label} requests non-existent Bouncy Castle jdk15on 1.78.1 artifacts`)
   }
+  if (/org\.bouncycastle:[^\s'",]+-jdk18on:1\.78\.1/.test(contents)) {
+    fail(`${label} pins Bouncy Castle jdk18on 1.78.1, which still contains Java 21 multi-release classes that break Gradle on JDK 17`)
+  }
+  if (/details\.useVersion ['"]1\.78\.1['"][\s\S]{0,160}Bouncy Castle/.test(contents)) {
+    fail(`${label} still forces Bouncy Castle 1.78.1; redirect jdk18on requests to jdk15on 1.70 instead`)
+  }
   if (/Redirect legacy jdk15on to jdk18on|name\.replace\('-jdk15on', '-jdk18on'\)/.test(contents)) {
     fail(`${label} contains stale Bouncy Castle jdk15on→jdk18on rewrite; use jdk15on 1.70 instead`)
   }

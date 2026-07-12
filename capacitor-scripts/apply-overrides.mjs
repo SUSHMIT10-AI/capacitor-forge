@@ -121,13 +121,20 @@ function repairBouncyCastleAlignment(source) {
       staleRewrite,
       `
                     details.useVersion '1.70'
-                    details.because 'Bouncy Castle jdk15on artifacts stop at 1.70; never request non-existent jdk15on 1.78.1'`,
+                    details.because 'Bouncy Castle jdk15on 1.70 avoids Java 21 bytecode in newer multi-release jars'`,
     )
     .replace(
       /org\.bouncycastle:([A-Za-z0-9-]+-jdk15on):1\.78\.1/g,
       'org.bouncycastle:$1:1.70',
     )
-    .replace(staleReason, 'Bouncy Castle jdk15on artifacts stop at 1.70; never request non-existent jdk15on 1.78.1')
+    .replace(/org\.bouncycastle:[A-Za-z0-9-]+-jdk18on:1\.78\.1,?\s*/g, '')
+    .replace(
+      /details\.useVersion '1\.78\.1'\n\s*details\.because 'Bouncy Castle 1\.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'/g,
+      `def replacement = name.replace('-jdk18on', '-jdk15on')
+                    details.useTarget group: 'org.bouncycastle', name: replacement, version: '1.70'
+                    details.because 'Use Bouncy Castle jdk15on 1.70 because jdk18on 1.78+ ships Java 21 classes that Gradle on JDK 17 cannot instrument'`,
+    )
+    .replace(staleReason, 'Bouncy Castle jdk15on 1.70 avoids Java 21 bytecode in newer multi-release jars')
 }
 
 /* ---------- Supported Capacitor plugin catalog ----------
@@ -551,19 +558,20 @@ allprojects {
                 def name = details.requested.name
                 if (name.endsWith('-jdk15on')) {
                     details.useVersion '1.70'
-                    details.because 'Bouncy Castle jdk15on artifacts stop at 1.70; never request non-existent jdk15on 1.78.1'
+                    details.because 'Bouncy Castle jdk15on 1.70 avoids Java 21 bytecode in newer multi-release jars'
                 } else if (name.endsWith('-jdk18on')) {
-                    details.useVersion '1.78.1'
-                    details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
+                    def replacement = name.replace('-jdk18on', '-jdk15on')
+                    details.useTarget group: 'org.bouncycastle', name: replacement, version: '1.70'
+                    details.because 'Use Bouncy Castle jdk15on 1.70 because jdk18on 1.78+ ships Java 21 classes that Gradle on JDK 17 cannot instrument'
                 }
             }
         }
-        resolutionStrategy.force 'org.bouncycastle:bcprov-jdk15on:1.70', 'org.bouncycastle:bcpkix-jdk15on:1.70', 'org.bouncycastle:bcutil-jdk15on:1.70', 'org.bouncycastle:bctls-jdk15on:1.70', 'org.bouncycastle:bcprov-jdk18on:1.78.1', 'org.bouncycastle:bcpkix-jdk18on:1.78.1', 'org.bouncycastle:bcutil-jdk18on:1.78.1', 'org.bouncycastle:bctls-jdk18on:1.78.1'
+        resolutionStrategy.force 'org.bouncycastle:bcprov-jdk15on:1.70', 'org.bouncycastle:bcpkix-jdk15on:1.70', 'org.bouncycastle:bcutil-jdk15on:1.70', 'org.bouncycastle:bctls-jdk15on:1.70'
     }
 }
 `
       fs.writeFileSync(rootGradle, g)
-      log('Pinned Bouncy Castle dependencies to 1.78.1 for JDK 17 Android builds')
+      log('Pinned Bouncy Castle dependencies to jdk15on 1.70 for JDK 17 Android builds')
     }
     g = fs.readFileSync(rootGradle, 'utf8')
     if (!/LOVABLE_BOUNCY_CASTLE_BUILDSCRIPT_JDK17_ALIGN/.test(g)) {
@@ -586,14 +594,15 @@ gradle.beforeProject { project ->
                 def name = details.requested.name
                 if (name.endsWith('-jdk15on')) {
                     details.useVersion '1.70'
-                    details.because 'Bouncy Castle jdk15on artifacts stop at 1.70; never request non-existent jdk15on 1.78.1'
+                    details.because 'Bouncy Castle jdk15on 1.70 avoids Java 21 bytecode in newer multi-release jars'
                 } else if (name.endsWith('-jdk18on')) {
-                    details.useVersion '1.78.1'
-                    details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
+                    def replacement = name.replace('-jdk18on', '-jdk15on')
+                    details.useTarget group: 'org.bouncycastle', name: replacement, version: '1.70'
+                    details.because 'Use Bouncy Castle jdk15on 1.70 because jdk18on 1.78+ ships Java 21 classes that Gradle on JDK 17 cannot instrument'
                 }
             }
         }
-        cfg.resolutionStrategy.force 'org.bouncycastle:bcprov-jdk15on:1.70', 'org.bouncycastle:bcpkix-jdk15on:1.70', 'org.bouncycastle:bcutil-jdk15on:1.70', 'org.bouncycastle:bctls-jdk15on:1.70', 'org.bouncycastle:bcprov-jdk18on:1.78.1', 'org.bouncycastle:bcpkix-jdk18on:1.78.1', 'org.bouncycastle:bcutil-jdk18on:1.78.1', 'org.bouncycastle:bctls-jdk18on:1.78.1'
+        cfg.resolutionStrategy.force 'org.bouncycastle:bcprov-jdk15on:1.70', 'org.bouncycastle:bcpkix-jdk15on:1.70', 'org.bouncycastle:bcutil-jdk15on:1.70', 'org.bouncycastle:bctls-jdk15on:1.70'
     }
 }
 allprojects { project ->
@@ -612,19 +621,20 @@ allprojects { project ->
                 def name = details.requested.name
                 if (name.endsWith('-jdk15on')) {
                     details.useVersion '1.70'
-                    details.because 'Bouncy Castle jdk15on artifacts stop at 1.70; never request non-existent jdk15on 1.78.1'
+                    details.because 'Bouncy Castle jdk15on 1.70 avoids Java 21 bytecode in newer multi-release jars'
                 } else if (name.endsWith('-jdk18on')) {
-                    details.useVersion '1.78.1'
-                    details.because 'Bouncy Castle 1.79 contains Java 21 multi-release classes that break JDK 17 Android bundle builds'
+                    def replacement = name.replace('-jdk18on', '-jdk15on')
+                    details.useTarget group: 'org.bouncycastle', name: replacement, version: '1.70'
+                    details.because 'Use Bouncy Castle jdk15on 1.70 because jdk18on 1.78+ ships Java 21 classes that Gradle on JDK 17 cannot instrument'
                 }
             }
         }
-        cfg.resolutionStrategy.force 'org.bouncycastle:bcprov-jdk15on:1.70', 'org.bouncycastle:bcpkix-jdk15on:1.70', 'org.bouncycastle:bcutil-jdk15on:1.70', 'org.bouncycastle:bctls-jdk15on:1.70', 'org.bouncycastle:bcprov-jdk18on:1.78.1', 'org.bouncycastle:bcpkix-jdk18on:1.78.1', 'org.bouncycastle:bcutil-jdk18on:1.78.1', 'org.bouncycastle:bctls-jdk18on:1.78.1'
+        cfg.resolutionStrategy.force 'org.bouncycastle:bcprov-jdk15on:1.70', 'org.bouncycastle:bcpkix-jdk15on:1.70', 'org.bouncycastle:bcutil-jdk15on:1.70', 'org.bouncycastle:bctls-jdk15on:1.70'
     }
 }
 `
       fs.writeFileSync(rootGradle, g)
-      log('Pinned Bouncy Castle buildscript dependencies to 1.78.1 for JDK 17 Android builds')
+      log('Pinned Bouncy Castle buildscript dependencies to jdk15on 1.70 for JDK 17 Android builds')
     }
   }
   if (fs.existsSync(rootGradle) && fs.existsSync(path.join(root, 'app', 'google-services.json'))) {
