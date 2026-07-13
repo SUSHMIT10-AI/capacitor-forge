@@ -1,5 +1,5 @@
 workflows:
-  build-aab-workflow:
+  build-aab:
     name: Build Android
     max_build_duration: 60
     environment:
@@ -554,7 +554,7 @@ workflows:
       - android-template/app/build/outputs/**/*.apk
       - android-template/app/build/outputs/**/mapping.txt
 
-  capacitor-aab-workflow:
+  capacitor-aab:
     name: Build Capacitor AAB
     max_build_duration: 90
     environment:

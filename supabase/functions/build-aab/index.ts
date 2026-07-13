@@ -28,9 +28,9 @@ Deno.serve(async (req) => {
     const savedCmAppId = Deno.env.get('CODEMAGIC_APP_ID')?.trim() ?? ''
     const rawWorkflowId = Deno.env.get('CODEMAGIC_WORKFLOW_ID')?.trim()
     const webviewWorkflowId = !rawWorkflowId || rawWorkflowId.includes('PLACEHOLDER')
-      ? 'build-aab-workflow'
+      ? 'build-aab'
       : rawWorkflowId
-    const capacitorWorkflowId = Deno.env.get('CODEMAGIC_CAPACITOR_WORKFLOW_ID')?.trim() || 'capacitor-aab-workflow'
+    const capacitorWorkflowId = Deno.env.get('CODEMAGIC_CAPACITOR_WORKFLOW_ID')?.trim() || 'capacitor-aab'
 
     if (!cmToken || !savedCmAppId) {
       return json({ error: 'Codemagic env vars missing (CODEMAGIC_API_TOKEN/APP_ID/WORKFLOW_ID)' }, 500)
