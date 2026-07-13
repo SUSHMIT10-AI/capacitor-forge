@@ -280,19 +280,22 @@ Deno.serve(async (req) => {
       },
     }
 
-    const triggerRes = await fetch(`${CODEMAGIC_API}/builds`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-auth-token': cmToken,
-      },
-      body: JSON.stringify(triggerBody),
-    })
+    let triggerRes = await triggerCodemagicBuild(cmToken, triggerBody)
+    let triggerJson = await triggerRes.json().catch(() => ({}))
 
-    const triggerJson = await triggerRes.json().catch(() => ({}))
+    if (!triggerRes.ok && isMissingWorkflowError(triggerJson)) {
+      const fallbackWorkflowId = await findAppWorkflowId(cmToken, cmAppId, cmWorkflowId)
+      if (fallbackWorkflowId && fallbackWorkflowId !== cmWorkflowId) {
+        console.warn(`Codemagic workflow "${cmWorkflowId}" was not found; retrying with app workflow id "${fallbackWorkflowId}"`)
+        triggerBody.workflowId = fallbackWorkflowId
+        triggerRes = await triggerCodemagicBuild(cmToken, triggerBody)
+        triggerJson = await triggerRes.json().catch(() => ({}))
+      }
+    }
+
     if (!triggerRes.ok) {
       const detail = triggerRes.status === 403
-        ? `Codemagic rejected the request for app ${cmAppId}. The API token can read the app, but Codemagic cannot start this workflow/branch. Confirm the app is connected to the GitHub repo, has branch "main", and includes workflow "${cmWorkflowId}" in codemagic.yaml.`
+        ? `Codemagic rejected the request for app ${cmAppId}. The API token can read the app, but Codemagic cannot start this workflow/branch. Confirm the app is connected to the GitHub repo, has branch "main", and includes workflow "${triggerBody.workflowId}" in codemagic.yaml.`
         : JSON.stringify(triggerJson)
       const msg = `Codemagic trigger failed (${triggerRes.status}): ${detail}`
       await supabase
@@ -354,6 +357,51 @@ function toBase64(value: string) {
     binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
   }
   return btoa(binary)
+}
+
+function triggerCodemagicBuild(token: string, body: Record<string, unknown>) {
+  return fetch(`${CODEMAGIC_API}/builds`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-auth-token': token,
+    },
+    body: JSON.stringify(body),
+  })
+}
+
+function isMissingWorkflowError(value: unknown) {
+  const text = JSON.stringify(value ?? '').toLowerCase()
+  return text.includes('workflow') && (text.includes('does not exist') || text.includes('not found'))
+}
+
+async function findAppWorkflowId(token: string, appId: string, preferred: string): Promise<string> {
+  const candidates: any[] = []
+
+  const appsRes = await fetch(`${CODEMAGIC_API}/apps`, { headers: { 'x-auth-token': token } })
+  const appsJson = await appsRes.json().catch(() => null)
+  const apps = Array.isArray(appsJson) ? appsJson : appsJson?.applications ?? []
+  const app = apps.find((item: any) => item?._id === appId)
+  if (app?.workflows) candidates.push(app.workflows)
+
+  const appRes = await fetch(`${CODEMAGIC_API}/apps/${appId}`, { headers: { 'x-auth-token': token } })
+  const appJson = await appRes.json().catch(() => null)
+  if (appJson?.workflows) candidates.push(appJson.workflows)
+
+  for (const workflows of candidates) {
+    if (Array.isArray(workflows)) {
+      const exact = workflows.find((workflow: any) => workflow === preferred || workflow?._id === preferred || workflow?.id === preferred)
+      if (exact) return typeof exact === 'string' ? exact : exact._id ?? exact.id ?? ''
+      const first = workflows.find((workflow: any) => typeof workflow === 'string' || workflow?._id || workflow?.id)
+      if (first) return typeof first === 'string' ? first : first._id ?? first.id ?? ''
+    } else if (typeof workflows === 'object') {
+      const keys = Object.keys(workflows)
+      if (keys.includes(preferred)) return preferred
+      if (keys.length === 1) return keys[0]
+    }
+  }
+
+  return ''
 }
 
 
