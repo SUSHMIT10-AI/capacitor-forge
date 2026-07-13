@@ -823,12 +823,17 @@ workflows:
             perl -0pi -e 's#distributionUrl=.*#distributionUrl=https\\://services.gradle.org/distributions/gradle-8.7-bin.zip#' "$WRAPPER_PROPS"
             echo "✅ Gradle wrapper pinned to 8.7 for Java 21 compatibility"
           fi
+          # Some uploaded Capacitor projects still generate AGP 8.2.x, which can
+          # repeatedly fail in the final bundle step with modern dependency jars.
+          # Align it with the wrapper/JDK used by this workflow before Gradle runs.
+          ROOT_GRADLE="build.gradle"
+          perl -0pi -e "s/id\s+['\"]com\.android\.application['\"]\s+version\s+['\"][^'\"]+['\"]/id 'com.android.application' version '8.6.1'/g; s/id\s+['\"]com\.android\.library['\"]\s+version\s+['\"][^'\"]+['\"]/id 'com.android.library' version '8.6.1'/g; s/classpath\s+['\"]com\.android\.tools\.build:gradle:[^'\"]+['\"]/classpath 'com.android.tools.build:gradle:8.6.1'/g" "$ROOT_GRADLE"
+          echo "✅ Android Gradle Plugin aligned to 8.6.1"
           # Capacitor plugins commonly drag in kotlin-stdlib-jdk7/jdk8:1.6.21 while
           # AGP 8.x ships kotlin-stdlib:1.8.22+. In Kotlin 1.8+ jdk7/jdk8 are merged
           # into the main stdlib, so mixing the two produces:
           #   "Duplicate class kotlin.collections.jdk8.CollectionsJDK8Kt"
           # Force every kotlin-stdlib* artifact to a single modern version.
-          ROOT_GRADLE="build.gradle"
           MARKER="// LOVABLE_KOTLIN_STDLIB_ALIGN"
           if ! grep -q "$MARKER" "$ROOT_GRADLE"; then
             {
