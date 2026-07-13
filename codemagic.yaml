@@ -3,7 +3,7 @@ workflows:
     name: Build Android
     max_build_duration: 60
     environment:
-      java: 17
+      java: 21
     scripts:
       - name: Install Gradle JDK 17 dependency guard
         script: |
@@ -548,7 +548,7 @@ workflows:
     name: Build Capacitor AAB
     max_build_duration: 90
     environment:
-      java: 17
+      java: 21
       node: 20
     scripts:
       - name: Install Gradle JDK 17 dependency guard
@@ -742,41 +742,87 @@ workflows:
           if ! keytool -certreq -alias "$CM_KEY_ALIAS" -keystore "$KS" -storepass "$CM_KEYSTORE_PASSWORD" -keypass "$CM_KEY_PASSWORD" -file /tmp/c.csr >/dev/null 2>&1; then
             CM_KEY_PASSWORD="$CM_KEYSTORE_PASSWORD"
           fi
+          echo "CM_KEYSTORE_PATH=$KS" >> "$CM_ENV"
           echo "CM_KEY_ALIAS=$CM_KEY_ALIAS" >> "$CM_ENV"
           echo "CM_KEY_PASSWORD=$CM_KEY_PASSWORD" >> "$CM_ENV"
-          # Inject release signingConfig into android/app/build.gradle if not present
+          export CM_KEYSTORE_PATH="$KS"
+          export CM_KEY_ALIAS
+          export CM_KEY_PASSWORD
+          # Upsert release signingConfig without creating duplicate buildTypes/release blocks.
           GRADLE="android/app/build.gradle"
-          if ! grep -q "signingConfigs {" "$GRADLE"; then
-            python3 - "$GRADLE" "$KS" "$CM_KEY_ALIAS" "$CM_KEYSTORE_PASSWORD" "$CM_KEY_PASSWORD" <<'PY'
-          import sys, re
-          p, ks, alias, sp, kp = sys.argv[1:]
-          src = open(p).read()
-          block = f"""
-              signingConfigs {{
-                  release {{
-                      storeFile file('{ks}')
-                      storePassword '{sp}'
-                      keyAlias '{alias}'
-                      keyPassword '{kp}'
-                  }}
-              }}
-              buildTypes {{
-                  release {{
-                      signingConfig signingConfigs.release
-                      minifyEnabled false
-                  }}
-              }}
-          """
-          src = re.sub(r"android\s*\{", "android {\n" + block, src, count=1)
-          open(p, 'w').write(src)
+          python3 - "$GRADLE" <<'PY'
+          import re, sys
+
+          path = sys.argv[1]
+          src = open(path, encoding='utf-8').read()
+
+          def find_block(text, pattern, start=0):
+              m = re.search(pattern, text[start:], re.M)
+              if not m:
+                  return None
+              open_brace = start + m.end() - 1
+              depth = 0
+              for i in range(open_brace, len(text)):
+                  if text[i] == '{':
+                      depth += 1
+                  elif text[i] == '}':
+                      depth -= 1
+                      if depth == 0:
+                          return (start + m.start(), i + 1, open_brace, i)
+              raise SystemExit(f"Unclosed Gradle block for {pattern}")
+
+          android = find_block(src, r'android\s*\{')
+          if not android:
+              raise SystemExit('android { } block not found in android/app/build.gradle')
+
+          signing_release = '''
+              release {
+                  storeFile file(System.getenv("CM_KEYSTORE_PATH") ?: "release.jks")
+                  storePassword System.getenv("CM_KEYSTORE_PASSWORD")
+                  keyAlias System.getenv("CM_KEY_ALIAS")
+                  keyPassword (System.getenv("CM_KEY_PASSWORD") ?: System.getenv("CM_KEYSTORE_PASSWORD"))
+              }
+          '''.rstrip()
+
+          signing = find_block(src, r'signingConfigs\s*\{', android[2],)
+          if signing and signing[0] < android[3]:
+              release = find_block(src, r'release\s*\{', signing[2])
+              if release and release[0] < signing[3]:
+                  src = src[:release[0]] + signing_release + src[release[1]:]
+              else:
+                  src = src[:signing[3]] + '\n' + signing_release + '\n        ' + src[signing[3]:]
+          else:
+              block = '\n        signingConfigs {\n' + signing_release + '\n        }\n'
+              src = src[:android[2] + 1] + block + src[android[2] + 1:]
+
+          android = find_block(src, r'android\s*\{')
+          build_types = find_block(src, r'buildTypes\s*\{', android[2])
+          release_line = '            signingConfig signingConfigs.release'
+          if build_types and build_types[0] < android[3]:
+              release = find_block(src, r'release\s*\{', build_types[2])
+              if release and release[0] < build_types[3]:
+                  body = src[release[2] + 1:release[3]]
+                  if 'signingConfig signingConfigs.release' not in body:
+                      src = src[:release[2] + 1] + '\n' + release_line + src[release[2] + 1:]
+              else:
+                  release_block = '\n        release {\n' + release_line + '\n            minifyEnabled false\n        }\n    '
+                  src = src[:build_types[3]] + release_block + src[build_types[3]:]
+          else:
+              block = '\n        buildTypes {\n        release {\n' + release_line + '\n            minifyEnabled false\n        }\n    }\n'
+              src = src[:android[3]] + block + src[android[3]:]
+
+          open(path, 'w', encoding='utf-8').write(src)
+          print('✅ Release signingConfig wired into android/app/build.gradle')
           PY
-          else
-            echo "signingConfigs already present in build.gradle — assuming Capacitor template handled it"
-          fi
       - name: Align Gradle dependency versions
         working_directory: user-project/android
         script: |
           set -euo pipefail
+          WRAPPER_PROPS="gradle/wrapper/gradle-wrapper.properties"
+          if [ -f "$WRAPPER_PROPS" ]; then
+            perl -0pi -e 's#distributionUrl=.*#distributionUrl=https\\://services.gradle.org/distributions/gradle-8.7-bin.zip#' "$WRAPPER_PROPS"
+            echo "✅ Gradle wrapper pinned to 8.7 for Java 21 compatibility"
+          fi
           # Capacitor plugins commonly drag in kotlin-stdlib-jdk7/jdk8:1.6.21 while
           # AGP 8.x ships kotlin-stdlib:1.8.22+. In Kotlin 1.8+ jdk7/jdk8 are merged
           # into the main stdlib, so mixing the two produces:
