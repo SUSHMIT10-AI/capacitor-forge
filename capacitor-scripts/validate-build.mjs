@@ -72,6 +72,12 @@ for (const gradleFile of [rootBuildGradle, buildGradle, settingsGradle]) {
   if (/Redirect legacy jdk15on to jdk18on|name\.replace\('-jdk15on', '-jdk18on'\)/.test(contents)) {
     fail(`${label} contains stale Bouncy Castle jdk15on→jdk18on rewrite; use jdk15on 1.70 instead`)
   }
+  if (label === path.join('android', 'app', 'build.gradle')) {
+    const minSdkMatches = [...contents.matchAll(/minSdk(?:Version)?\s*(?:=|\()?\s*(\d+)/g)]
+    for (const match of minSdkMatches) {
+      if (Number(match[1]) < 23) fail(`${label} has minSdk ${match[1]}; Google Play Services now requires minSdk 23`)
+    }
+  }
 }
 
 if (fs.existsSync(rootBuildGradle)) {
