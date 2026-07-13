@@ -745,20 +745,45 @@ workflows:
               if not path.exists():
                   continue
               text = path.read_text(encoding='utf-8')
+              text = re.sub(r'compileSdkVersion\s+rootProject\.ext\.compileSdkVersion', 'compileSdk 35', text)
+              text = re.sub(r'compileSdk\s+rootProject\.ext\.compileSdkVersion', 'compileSdk 35', text)
+              text = re.sub(r'compileSdkVersion\s*=\s*rootProject\.ext\.compileSdkVersion', 'compileSdkVersion = 35', text)
+              text = re.sub(r'compileSdk\s*=\s*rootProject\.ext\.compileSdkVersion', 'compileSdk = 35', text)
+              text = re.sub(r'targetSdkVersion\s+rootProject\.ext\.targetSdkVersion', 'targetSdk 35', text)
+              text = re.sub(r'targetSdk\s+rootProject\.ext\.targetSdkVersion', 'targetSdk 35', text)
+              text = re.sub(r'targetSdkVersion\s*=\s*rootProject\.ext\.targetSdkVersion', 'targetSdkVersion = 35', text)
+              text = re.sub(r'targetSdk\s*=\s*rootProject\.ext\.targetSdkVersion', 'targetSdk = 35', text)
               text = re.sub(r'minSdkVersion\s+rootProject\.ext\.minSdkVersion', 'minSdk 23', text)
               text = re.sub(r'minSdk\s+rootProject\.ext\.minSdkVersion', 'minSdk 23', text)
               text = re.sub(r'minSdkVersion\s*=\s*rootProject\.ext\.minSdkVersion', 'minSdkVersion = 23', text)
               text = re.sub(r'minSdk\s*=\s*rootProject\.ext\.minSdkVersion', 'minSdk = 23', text)
+              text = re.sub(r'compileSdkVersion\s+\d+', 'compileSdkVersion 35', text)
+              text = re.sub(r'compileSdk\s+\d+', 'compileSdk 35', text)
+              text = re.sub(r'compileSdkVersion\s*=\s*\d+', 'compileSdkVersion = 35', text)
+              text = re.sub(r'compileSdk\s*=\s*\d+', 'compileSdk = 35', text)
+              text = re.sub(r'compileSdkVersion\(\s*\d+\s*\)', 'compileSdkVersion(35)', text)
+              text = re.sub(r'compileSdk\(\s*\d+\s*\)', 'compileSdk(35)', text)
+              text = re.sub(r'targetSdkVersion\s+\d+', 'targetSdkVersion 35', text)
+              text = re.sub(r'targetSdk\s+\d+', 'targetSdk 35', text)
+              text = re.sub(r'targetSdkVersion\s*=\s*\d+', 'targetSdkVersion = 35', text)
+              text = re.sub(r'targetSdk\s*=\s*\d+', 'targetSdk = 35', text)
+              text = re.sub(r'targetSdkVersion\(\s*\d+\s*\)', 'targetSdkVersion(35)', text)
+              text = re.sub(r'targetSdk\(\s*\d+\s*\)', 'targetSdk(35)', text)
               text = re.sub(r'minSdkVersion\s+\d+', 'minSdkVersion 23', text)
               text = re.sub(r'minSdk\s+\d+', 'minSdk 23', text)
               text = re.sub(r'minSdkVersion\s*=\s*\d+', 'minSdkVersion = 23', text)
               text = re.sub(r'minSdk\s*=\s*\d+', 'minSdk = 23', text)
               text = re.sub(r'minSdkVersion\(\s*\d+\s*\)', 'minSdkVersion(23)', text)
               text = re.sub(r'minSdk\(\s*\d+\s*\)', 'minSdk(23)', text)
-              if path.name == 'build.gradle' and 'minSdk' not in text:
-                  text = re.sub(r'defaultConfig\s*\{', 'defaultConfig {\n        minSdk 23', text, count=1)
+              if path.name == 'build.gradle':
+                  if 'compileSdk' not in text and 'compileSdkVersion' not in text:
+                      text = re.sub(r'android\s*\{', 'android {\n    compileSdk 35', text, count=1)
+                  if 'targetSdk' not in text and 'targetSdkVersion' not in text:
+                      text = re.sub(r'defaultConfig\s*\{', 'defaultConfig {\n        targetSdk 35', text, count=1)
+                  if 'minSdk' not in text and 'minSdkVersion' not in text:
+                      text = re.sub(r'defaultConfig\s*\{', 'defaultConfig {\n        minSdk 23', text, count=1)
               path.write_text(text, encoding='utf-8')
-          print('✅ Android minSdk forced to 23 for Google Play Services compatibility')
+          print('✅ Android SDK locked to compileSdk 35, targetSdk 35, and minSdk 23')
           PY
       - name: Capacitor sync (link plugins + copy web assets)
         working_directory: user-project
@@ -951,6 +976,71 @@ workflows:
         working_directory: user-project/android
         script: |
           set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, sys
+
+          app = Path('app/build.gradle')
+          variables = Path('variables.gradle')
+          for path in (app, variables):
+              if not path.exists():
+                  continue
+              text = path.read_text(encoding='utf-8')
+              replacements = [
+                  (r'compileSdkVersion\s+rootProject\.ext\.compileSdkVersion', 'compileSdk 35'),
+                  (r'compileSdk\s+rootProject\.ext\.compileSdkVersion', 'compileSdk 35'),
+                  (r'compileSdkVersion\s*=\s*rootProject\.ext\.compileSdkVersion', 'compileSdkVersion = 35'),
+                  (r'compileSdk\s*=\s*rootProject\.ext\.compileSdkVersion', 'compileSdk = 35'),
+                  (r'targetSdkVersion\s+rootProject\.ext\.targetSdkVersion', 'targetSdk 35'),
+                  (r'targetSdk\s+rootProject\.ext\.targetSdkVersion', 'targetSdk 35'),
+                  (r'targetSdkVersion\s*=\s*rootProject\.ext\.targetSdkVersion', 'targetSdkVersion = 35'),
+                  (r'targetSdk\s*=\s*rootProject\.ext\.targetSdkVersion', 'targetSdk = 35'),
+                  (r'minSdkVersion\s+rootProject\.ext\.minSdkVersion', 'minSdk 23'),
+                  (r'minSdk\s+rootProject\.ext\.minSdkVersion', 'minSdk 23'),
+                  (r'minSdkVersion\s*=\s*rootProject\.ext\.minSdkVersion', 'minSdkVersion = 23'),
+                  (r'minSdk\s*=\s*rootProject\.ext\.minSdkVersion', 'minSdk = 23'),
+                  (r'compileSdkVersion\s+\d+', 'compileSdkVersion 35'),
+                  (r'compileSdk\s+\d+', 'compileSdk 35'),
+                  (r'compileSdkVersion\s*=\s*\d+', 'compileSdkVersion = 35'),
+                  (r'compileSdk\s*=\s*\d+', 'compileSdk = 35'),
+                  (r'compileSdkVersion\(\s*\d+\s*\)', 'compileSdkVersion(35)'),
+                  (r'compileSdk\(\s*\d+\s*\)', 'compileSdk(35)'),
+                  (r'targetSdkVersion\s+\d+', 'targetSdkVersion 35'),
+                  (r'targetSdk\s+\d+', 'targetSdk 35'),
+                  (r'targetSdkVersion\s*=\s*\d+', 'targetSdkVersion = 35'),
+                  (r'targetSdk\s*=\s*\d+', 'targetSdk = 35'),
+                  (r'targetSdkVersion\(\s*\d+\s*\)', 'targetSdkVersion(35)'),
+                  (r'targetSdk\(\s*\d+\s*\)', 'targetSdk(35)'),
+                  (r'minSdkVersion\s+\d+', 'minSdkVersion 23'),
+                  (r'minSdk\s+\d+', 'minSdk 23'),
+                  (r'minSdkVersion\s*=\s*\d+', 'minSdkVersion = 23'),
+                  (r'minSdk\s*=\s*\d+', 'minSdk = 23'),
+                  (r'minSdkVersion\(\s*\d+\s*\)', 'minSdkVersion(23)'),
+                  (r'minSdk\(\s*\d+\s*\)', 'minSdk(23)'),
+              ]
+              for pattern, replacement in replacements:
+                  text = re.sub(pattern, replacement, text)
+              if path == app:
+                  if 'compileSdk' not in text and 'compileSdkVersion' not in text:
+                      text = re.sub(r'android\s*\{', 'android {\n    compileSdk 35', text, count=1)
+                  if 'targetSdk' not in text and 'targetSdkVersion' not in text:
+                      text = re.sub(r'defaultConfig\s*\{', 'defaultConfig {\n        targetSdk 35', text, count=1)
+                  if 'minSdk' not in text and 'minSdkVersion' not in text:
+                      text = re.sub(r'defaultConfig\s*\{', 'defaultConfig {\n        minSdk 23', text, count=1)
+              path.write_text(text, encoding='utf-8')
+
+          app_text = app.read_text(encoding='utf-8')
+          checks = {
+              'compileSdk': re.search(r'compileSdk(?:Version)?\s*(?:=|\()?\s*(\d+)', app_text),
+              'targetSdk': re.search(r'targetSdk(?:Version)?\s*(?:=|\()?\s*(\d+)', app_text),
+              'minSdk': re.search(r'minSdk(?:Version)?\s*(?:=|\()?\s*(\d+)', app_text),
+          }
+          expected = {'compileSdk': '35', 'targetSdk': '35', 'minSdk': '23'}
+          for name, match in checks.items():
+              if not match or match.group(1) != expected[name]:
+                  raise SystemExit(f'❌ {name} is {match.group(1) if match else "missing"}; expected {expected[name]} before Gradle build')
+          print('✅ Final Android SDK check passed: compileSdk 35, targetSdk 35, minSdk 23')
+          PY
           chmod +x ./gradlew
           INIT_SCRIPT="$HOME/.gradle/init.d/lovable-bouncycastle-jdk17.gradle"
           test -f "$INIT_SCRIPT" && grep -q 'LOVABLE_BOUNCY_CASTLE_JDK17_INIT' "$INIT_SCRIPT"
