@@ -139,6 +139,26 @@ function repairBouncyCastleAlignment(source) {
     .replace(staleReason, 'Bouncy Castle jdk15on 1.70 avoids Java 21 bytecode in newer multi-release jars')
 }
 
+function forceMinSdk23(source) {
+  let next = source
+    .replace(/minSdkVersion\s+rootProject\.ext\.minSdkVersion/g, 'minSdk 23')
+    .replace(/minSdk\s+rootProject\.ext\.minSdkVersion/g, 'minSdk 23')
+    .replace(/minSdkVersion\s*=\s*rootProject\.ext\.minSdkVersion/g, 'minSdkVersion = 23')
+    .replace(/minSdk\s*=\s*rootProject\.ext\.minSdkVersion/g, 'minSdk = 23')
+    .replace(/minSdkVersion\s+\d+/g, 'minSdkVersion 23')
+    .replace(/minSdk\s+\d+/g, 'minSdk 23')
+    .replace(/minSdkVersion\s*=\s*\d+/g, 'minSdkVersion = 23')
+    .replace(/minSdk\s*=\s*\d+/g, 'minSdk = 23')
+    .replace(/minSdkVersion\(\s*\d+\s*\)/g, 'minSdkVersion(23)')
+    .replace(/minSdk\(\s*\d+\s*\)/g, 'minSdk(23)')
+
+  if (!/\bminSdk(?:Version)?\b/.test(next)) {
+    next = next.replace(/defaultConfig\s*\{/, (m) => `${m}\n        minSdk 23`)
+  }
+
+  return next
+}
+
 /* ---------- Supported Capacitor plugin catalog ----------
  * Plugins listed here will be auto-installed when:
  *   a) the user's package.json already references them (detected)
@@ -505,6 +525,7 @@ export function patchAndroid(root) {
     g = g.replace(/applicationId\s+["'][^"']+["']/, `applicationId "${APP_ID}"`)
     g = g.replace(/versionCode\s+\d+/, `versionCode ${VERSION_CODE}`)
     g = g.replace(/versionName\s+["'][^"']+["']/, `versionName "${VERSION_NAME}"`)
+    g = forceMinSdk23(g)
     // AGP 8 requires `namespace` in every module. Capacitor 6 sets it, but if a
     // user shipped an older template or removed it, Gradle fails with
     //   "Namespace not specified. Specify a namespace in the module's build file."
@@ -537,6 +558,16 @@ export function patchAndroid(root) {
     log(
       `Patched app/build.gradle (applicationId=${APP_ID} versionCode=${VERSION_CODE} versionName=${VERSION_NAME})`,
     )
+  }
+
+  const variablesGradle = path.join(root, 'variables.gradle')
+  if (fs.existsSync(variablesGradle)) {
+    const vars = fs.readFileSync(variablesGradle, 'utf8')
+    const next = forceMinSdk23(vars)
+    if (next !== vars) {
+      fs.writeFileSync(variablesGradle, next)
+      log('Raised android/variables.gradle minSdkVersion to 23 for current Google Play Services')
+    }
   }
 
   /* Root build.gradle — Google Services classpath if needed */
