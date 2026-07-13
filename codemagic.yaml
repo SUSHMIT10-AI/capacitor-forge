@@ -83,16 +83,17 @@ workflows:
       - name: Set up Android SDK path
         script: |
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android-template/local.properties"
-      - name: Force Android API 35 target
+      - name: Force Android API 35 target and minSdk 23
         script: |
           set -euo pipefail
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" >/dev/null || true
           GRADLE_FILE="$CM_BUILD_DIR/android-template/app/build.gradle"
-          perl -0pi -e 's/compileSdk(?:Version)?\s+\d+/compileSdk 35/g; s/targetSdk(?:Version)?\s+\d+/targetSdk 35/g' "$GRADLE_FILE"
+          perl -0pi -e 's/compileSdk(?:Version)?\s+\d+/compileSdk 35/g; s/targetSdk(?:Version)?\s+\d+/targetSdk 35/g; s/minSdk(?:Version)?\s+\d+/minSdk 23/g' "$GRADLE_FILE"
           grep -Eq 'compileSdk\s+35' "$GRADLE_FILE"
           grep -Eq 'targetSdk\s+35' "$GRADLE_FILE"
-          sed -n '/android {/,/defaultConfig {/p; /defaultConfig {/,/}/p' "$GRADLE_FILE" | grep -E 'compileSdk|targetSdk' || true
-          echo "✅ Android build is locked to compileSdk 35 and targetSdk 35."
+          grep -Eq 'minSdk\s+23' "$GRADLE_FILE"
+          sed -n '/android {/,/defaultConfig {/p; /defaultConfig {/,/}/p' "$GRADLE_FILE" | grep -E 'compileSdk|targetSdk|minSdk' || true
+          echo "✅ Android build is locked to compileSdk 35, targetSdk 35, and minSdk 23."
       - name: Normalize Gradle signing DSL
         script: |
           GRADLE_FILE="$CM_BUILD_DIR/android-template/app/build.gradle"
@@ -731,6 +732,34 @@ workflows:
           VERSION_CODE="$VERSION_CODE" \
           ADMOB_APP_ID="${ADMOB_APP_ID:-}" ADMOB_BANNER_ID="${ADMOB_BANNER_ID:-}" ADMOB_INTERSTITIAL_ID="${ADMOB_INTERSTITIAL_ID:-}" ADMOB_REWARDED_ID="${ADMOB_REWARDED_ID:-}" ADMOB_REWARDED_INTERSTITIAL_ID="${ADMOB_REWARDED_INTERSTITIAL_ID:-}" ADMOB_APP_OPEN_ID="${ADMOB_APP_OPEN_ID:-}" ADMOB_TEST_MODE="${ADMOB_TEST_MODE:-false}" \
             node "$CM_BUILD_DIR/capacitor-scripts/apply-overrides.mjs"
+      - name: Force Android SDK compatibility
+        working_directory: user-project
+        script: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          files = [Path('android/app/build.gradle'), Path('android/variables.gradle')]
+          for path in files:
+              if not path.exists():
+                  continue
+              text = path.read_text(encoding='utf-8')
+              text = re.sub(r'minSdkVersion\s+rootProject\.ext\.minSdkVersion', 'minSdk 23', text)
+              text = re.sub(r'minSdk\s+rootProject\.ext\.minSdkVersion', 'minSdk 23', text)
+              text = re.sub(r'minSdkVersion\s*=\s*rootProject\.ext\.minSdkVersion', 'minSdkVersion = 23', text)
+              text = re.sub(r'minSdk\s*=\s*rootProject\.ext\.minSdkVersion', 'minSdk = 23', text)
+              text = re.sub(r'minSdkVersion\s+\d+', 'minSdkVersion 23', text)
+              text = re.sub(r'minSdk\s+\d+', 'minSdk 23', text)
+              text = re.sub(r'minSdkVersion\s*=\s*\d+', 'minSdkVersion = 23', text)
+              text = re.sub(r'minSdk\s*=\s*\d+', 'minSdk = 23', text)
+              text = re.sub(r'minSdkVersion\(\s*\d+\s*\)', 'minSdkVersion(23)', text)
+              text = re.sub(r'minSdk\(\s*\d+\s*\)', 'minSdk(23)', text)
+              if path.name == 'build.gradle' and 'minSdk' not in text:
+                  text = re.sub(r'defaultConfig\s*\{', 'defaultConfig {\n        minSdk 23', text, count=1)
+              path.write_text(text, encoding='utf-8')
+          print('✅ Android minSdk forced to 23 for Google Play Services compatibility')
+          PY
       - name: Capacitor sync (link plugins + copy web assets)
         working_directory: user-project
         script: |
