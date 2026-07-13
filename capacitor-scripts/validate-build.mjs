@@ -73,9 +73,27 @@ for (const gradleFile of [rootBuildGradle, buildGradle, settingsGradle]) {
     fail(`${label} contains stale Bouncy Castle jdk15on→jdk18on rewrite; use jdk15on 1.70 instead`)
   }
   if (label === path.join('android', 'app', 'build.gradle')) {
+    const compileSdkMatches = [...contents.matchAll(/compileSdk(?:Version)?\s*(?:=|\()?\s*(\d+)/g)]
+    const targetSdkMatches = [...contents.matchAll(/targetSdk(?:Version)?\s*(?:=|\()?\s*(\d+)/g)]
+    if (!compileSdkMatches.length) fail(`${label} is missing compileSdk; Play-ready builds require compileSdk 35`)
+    if (!targetSdkMatches.length) fail(`${label} is missing targetSdk; Play-ready builds require targetSdk 35`)
+    for (const match of compileSdkMatches) {
+      if (Number(match[1]) !== 35) fail(`${label} has compileSdk ${match[1]}; Play-ready builds require compileSdk 35`)
+    }
+    for (const match of targetSdkMatches) {
+      if (Number(match[1]) !== 35) fail(`${label} has targetSdk ${match[1]}; Play Console requires targetSdk 35`)
+    }
     const minSdkMatches = [...contents.matchAll(/minSdk(?:Version)?\s*(?:=|\()?\s*(\d+)/g)]
+    if (!minSdkMatches.length) fail(`${label} is missing minSdk; Google Play Services requires minSdk 23`)
     for (const match of minSdkMatches) {
       if (Number(match[1]) < 23) fail(`${label} has minSdk ${match[1]}; Google Play Services now requires minSdk 23`)
+    }
+  }
+  if (label === path.join('android', 'variables.gradle')) {
+    for (const [name, expected] of [['compileSdkVersion', 35], ['targetSdkVersion', 35], ['minSdkVersion', 23]]) {
+      const re = new RegExp(`${name}\\s*=\\s*(\\d+)`)
+      const match = contents.match(re)
+      if (match && Number(match[1]) !== expected) fail(`${label} has ${name} ${match[1]}; expected ${expected}`)
     }
   }
 }

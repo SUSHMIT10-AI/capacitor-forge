@@ -37,12 +37,47 @@ Deno.serve(async (req) => {
       const txt = await r.text()
       logTail = txt.length > 16000 ? txt.slice(-16000) : txt
     }
+
+    const actionSummary = steps.map((s: any) => ({
+      name: s?.name ?? s?.actionName ?? null,
+      status: s?.status ?? null,
+      subactions: (s?.subactions ?? []).map((sub: any) => ({
+        name: sub?.name ?? sub?.actionName ?? null,
+        status: sub?.status ?? null,
+        has_log: !!sub?.logUrl,
+      })),
+    }))
+
+    const interestingLogs: Record<string, string> = {}
+    for (const action of steps) {
+      const name = String(action?.name ?? action?.actionName ?? '')
+      const shouldRead = /sdk|gradle|bundle|aab|artifact|validate|build android/i.test(name)
+      if (!shouldRead && !/fail|error/i.test(String(action?.status ?? ''))) continue
+      const actionSub = (action?.subactions ?? []).find((s: any) => s?.logUrl) ?? action
+      if (!actionSub?.logUrl) continue
+      const r = await fetch(actionSub.logUrl, { headers: { 'x-auth-token': token } })
+      const txt = await r.text()
+      interestingLogs[name || `action_${Object.keys(interestingLogs).length + 1}`] = txt.length > 6000 ? txt.slice(-6000) : txt
+    }
+
+    const artifacts = (build?.artefacts ?? build?.artifacts ?? []).map((a: any) => ({
+      name: a?.name ?? a?.file ?? null,
+      type: a?.type ?? null,
+      size: a?.size ?? null,
+    }))
+
     return json({
       build_id: buildId,
       status: build?.status,
       message: build?.message,
+      workflow_id: build?.workflowId ?? build?.workflow?._id ?? build?.workflow?.id ?? null,
+      branch: build?.branch ?? null,
+      commit: build?.commit?.hash ?? build?.commitHash ?? null,
+      actions: actionSummary,
+      artifacts,
       failed_step: failed?.name,
       log_tail: logTail,
+      interesting_logs: interestingLogs,
     }, 200)
   }
 
