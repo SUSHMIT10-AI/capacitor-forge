@@ -35,6 +35,15 @@ workflows:
               )
           }
 
+          // Patch the settings-level buildscript BEFORE pluginManagement resolves AGP.
+          // This is critical: AGP's transitive Bouncy Castle dependency is fetched from
+          // the settings/pluginManagement classpath, which `beforeProject` runs too late for.
+          gradle.beforeSettings { settings ->
+              settings.buildscript.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
+          }
+          gradle.settingsEvaluated { settings ->
+              settings.buildscript.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
+          }
           gradle.beforeProject { project ->
               project.buildscript.repositories { repos ->
                   repos.mavenCentral()
@@ -49,6 +58,7 @@ workflows:
               project.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
           }
           GRADLE
+
           rm -rf \
             "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcprov-jdk18on/1.79" \
             "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcpkix-jdk18on/1.79" \
@@ -581,6 +591,13 @@ workflows:
               )
           }
 
+          // Patch the settings-level buildscript BEFORE pluginManagement resolves AGP.
+          gradle.beforeSettings { settings ->
+              settings.buildscript.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
+          }
+          gradle.settingsEvaluated { settings ->
+              settings.buildscript.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
+          }
           gradle.beforeProject { project ->
               project.buildscript.repositories { repos ->
                   repos.mavenCentral()
@@ -595,6 +612,7 @@ workflows:
               project.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
           }
           GRADLE
+
           rm -rf \
             "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcprov-jdk18on/1.79" \
             "$HOME/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcpkix-jdk18on/1.79" \
