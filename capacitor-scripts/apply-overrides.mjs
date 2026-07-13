@@ -543,6 +543,15 @@ export function patchAndroid(root) {
   const rootGradle = path.join(root, 'build.gradle')
   if (fs.existsSync(rootGradle)) {
     let g = fs.readFileSync(rootGradle, 'utf8')
+    const agpAligned = g
+      .replace(/id\s+['"]com\.android\.application['"]\s+version\s+['"][^'"]+['"]/g, "id 'com.android.application' version '8.6.1'")
+      .replace(/id\s+['"]com\.android\.library['"]\s+version\s+['"][^'"]+['"]/g, "id 'com.android.library' version '8.6.1'")
+      .replace(/classpath\s+['"]com\.android\.tools\.build:gradle:[^'"]+['"]/g, "classpath 'com.android.tools.build:gradle:8.6.1'")
+    if (agpAligned !== g) {
+      g = agpAligned
+      fs.writeFileSync(rootGradle, g)
+      log('Aligned Android Gradle Plugin to 8.6.1 for Java 21 / Gradle 8.7 builds')
+    }
     const repaired = repairBouncyCastleAlignment(g)
     if (repaired !== g) {
       g = repaired
