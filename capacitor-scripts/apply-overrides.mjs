@@ -139,18 +139,46 @@ function repairBouncyCastleAlignment(source) {
     .replace(staleReason, 'Bouncy Castle jdk15on 1.70 avoids Java 21 bytecode in newer multi-release jars')
 }
 
-function forceMinSdk23(source) {
+function forceAndroidSdkCompatibility(source) {
   let next = source
+    .replace(/compileSdkVersion\s+rootProject\.ext\.compileSdkVersion/g, 'compileSdk 35')
+    .replace(/compileSdk\s+rootProject\.ext\.compileSdkVersion/g, 'compileSdk 35')
+    .replace(/compileSdkVersion\s*=\s*rootProject\.ext\.compileSdkVersion/g, 'compileSdkVersion = 35')
+    .replace(/compileSdk\s*=\s*rootProject\.ext\.compileSdkVersion/g, 'compileSdk = 35')
+    .replace(/targetSdkVersion\s+rootProject\.ext\.targetSdkVersion/g, 'targetSdk 35')
+    .replace(/targetSdk\s+rootProject\.ext\.targetSdkVersion/g, 'targetSdk 35')
+    .replace(/targetSdkVersion\s*=\s*rootProject\.ext\.targetSdkVersion/g, 'targetSdkVersion = 35')
+    .replace(/targetSdk\s*=\s*rootProject\.ext\.targetSdkVersion/g, 'targetSdk = 35')
     .replace(/minSdkVersion\s+rootProject\.ext\.minSdkVersion/g, 'minSdk 23')
     .replace(/minSdk\s+rootProject\.ext\.minSdkVersion/g, 'minSdk 23')
     .replace(/minSdkVersion\s*=\s*rootProject\.ext\.minSdkVersion/g, 'minSdkVersion = 23')
     .replace(/minSdk\s*=\s*rootProject\.ext\.minSdkVersion/g, 'minSdk = 23')
+    .replace(/compileSdkVersion\s+\d+/g, 'compileSdkVersion 35')
+    .replace(/compileSdk\s+\d+/g, 'compileSdk 35')
+    .replace(/compileSdkVersion\s*=\s*\d+/g, 'compileSdkVersion = 35')
+    .replace(/compileSdk\s*=\s*\d+/g, 'compileSdk = 35')
+    .replace(/compileSdkVersion\(\s*\d+\s*\)/g, 'compileSdkVersion(35)')
+    .replace(/compileSdk\(\s*\d+\s*\)/g, 'compileSdk(35)')
+    .replace(/targetSdkVersion\s+\d+/g, 'targetSdkVersion 35')
+    .replace(/targetSdk\s+\d+/g, 'targetSdk 35')
+    .replace(/targetSdkVersion\s*=\s*\d+/g, 'targetSdkVersion = 35')
+    .replace(/targetSdk\s*=\s*\d+/g, 'targetSdk = 35')
+    .replace(/targetSdkVersion\(\s*\d+\s*\)/g, 'targetSdkVersion(35)')
+    .replace(/targetSdk\(\s*\d+\s*\)/g, 'targetSdk(35)')
     .replace(/minSdkVersion\s+\d+/g, 'minSdkVersion 23')
     .replace(/minSdk\s+\d+/g, 'minSdk 23')
     .replace(/minSdkVersion\s*=\s*\d+/g, 'minSdkVersion = 23')
     .replace(/minSdk\s*=\s*\d+/g, 'minSdk = 23')
     .replace(/minSdkVersion\(\s*\d+\s*\)/g, 'minSdkVersion(23)')
     .replace(/minSdk\(\s*\d+\s*\)/g, 'minSdk(23)')
+
+  if (!/\bcompileSdk(?:Version)?\b/.test(next)) {
+    next = next.replace(/android\s*\{/, (m) => `${m}\n    compileSdk 35`)
+  }
+
+  if (!/\btargetSdk(?:Version)?\b/.test(next)) {
+    next = next.replace(/defaultConfig\s*\{/, (m) => `${m}\n        targetSdk 35`)
+  }
 
   if (!/\bminSdk(?:Version)?\b/.test(next)) {
     next = next.replace(/defaultConfig\s*\{/, (m) => `${m}\n        minSdk 23`)
@@ -525,7 +553,7 @@ export function patchAndroid(root) {
     g = g.replace(/applicationId\s+["'][^"']+["']/, `applicationId "${APP_ID}"`)
     g = g.replace(/versionCode\s+\d+/, `versionCode ${VERSION_CODE}`)
     g = g.replace(/versionName\s+["'][^"']+["']/, `versionName "${VERSION_NAME}"`)
-    g = forceMinSdk23(g)
+    g = forceAndroidSdkCompatibility(g)
     // AGP 8 requires `namespace` in every module. Capacitor 6 sets it, but if a
     // user shipped an older template or removed it, Gradle fails with
     //   "Namespace not specified. Specify a namespace in the module's build file."
@@ -563,10 +591,10 @@ export function patchAndroid(root) {
   const variablesGradle = path.join(root, 'variables.gradle')
   if (fs.existsSync(variablesGradle)) {
     const vars = fs.readFileSync(variablesGradle, 'utf8')
-    const next = forceMinSdk23(vars)
+    const next = forceAndroidSdkCompatibility(vars)
     if (next !== vars) {
       fs.writeFileSync(variablesGradle, next)
-      log('Raised android/variables.gradle minSdkVersion to 23 for current Google Play Services')
+      log('Locked android/variables.gradle to compileSdk 35, targetSdk 35, and minSdk 23')
     }
   }
 
