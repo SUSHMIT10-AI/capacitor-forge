@@ -141,7 +141,7 @@ android {
 
     defaultConfig {
         applicationId resolvedPackage
-        minSdk 22
+        minSdk 23
         targetSdk 35
         versionCode resolvedVCode
         versionName resolvedVName
