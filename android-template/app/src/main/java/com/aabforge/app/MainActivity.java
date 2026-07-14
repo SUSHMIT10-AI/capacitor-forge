@@ -286,7 +286,20 @@ public class MainActivity extends AppCompatActivity {
         } else {
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
         }
+        // Render around display cutouts (notches / punch-holes) on Android 9+ so
+        // the WebView fills the entire physical screen instead of being letter-boxed.
+        // Combined with the safe-area CSS injected at document-start below, content
+        // still stays clear of the cutout and system bars.
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            try {
+                android.view.WindowManager.LayoutParams lp = getWindow().getAttributes();
+                lp.layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams
+                    .LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+                getWindow().setAttributes(lp);
+            } catch (Throwable ignored) {}
+        }
     }
+
 
     private void injectDocumentStartFeatureLocks() {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return;
@@ -294,6 +307,39 @@ public class MainActivity extends AppCompatActivity {
         // Expose native flags at document-start so SPA bundles see them on first render.
         script.append("window.__ANDROID_NATIVE__=true;");
         script.append("window.__APP_URL__='" + BuildConfig.APP_URL.replace("'", "\\'") + "';");
+        // Guarantee a responsive viewport on every page so the app fills the phone
+        // screen (no zoomed-out ~980px desktop layout) and respects notches via
+        // viewport-fit=cover. Also inject safe-area padding so fixed headers/footers
+        // are never hidden under the status bar, nav bar, or camera cutout.
+        script.append(
+            "var ensureViewport=function(){" +
+              "var m=document.querySelector('meta[name=\"viewport\"]');" +
+              "var content='width=device-width, initial-scale=1, maximum-scale=" +
+                (BuildConfig.ALLOW_ZOOM ? "5" : "1") +
+                ", user-scalable=" + (BuildConfig.ALLOW_ZOOM ? "yes" : "no") +
+                ", viewport-fit=cover';" +
+              "if(!m){m=document.createElement('meta');m.name='viewport';m.content=content;" +
+                "(document.head||document.documentElement).appendChild(m);}" +
+              "else if(!/viewport-fit\\s*=\\s*cover/i.test(m.content)){m.content=content;}" +
+            "};" +
+            "ensureViewport();" +
+            "if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ensureViewport,{once:true});" +
+            "var applySafeArea=function(){" +
+              "var id='aabforge-safe-area';if(document.getElementById(id))return;" +
+              "var s=document.createElement('style');s.id=id;" +
+              "s.textContent='html,body{max-width:100vw;overflow-x:hidden;}" +
+                "@supports(padding:env(safe-area-inset-top)){" +
+                  "body{padding-top:env(safe-area-inset-top);" +
+                  "padding-bottom:env(safe-area-inset-bottom);" +
+                  "padding-left:env(safe-area-inset-left);" +
+                  "padding-right:env(safe-area-inset-right);}" +
+                "}';" +
+              "(document.head||document.documentElement).appendChild(s);" +
+            "};" +
+            "applySafeArea();" +
+            "if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',applySafeArea,{once:true});"
+        );
+
         if (BuildConfig.ENABLE_BILLING)   script.append("window.__BILLING_ENABLED__=true;");
         if (BuildConfig.ENABLE_CAPACITOR) script.append("window.__CAPACITOR_NATIVE__=true;");
         // Capacitor compatibility layer: many Lovable webapps ship Capacitor JS
