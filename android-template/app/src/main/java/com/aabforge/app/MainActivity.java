@@ -286,7 +286,20 @@ public class MainActivity extends AppCompatActivity {
         } else {
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
         }
+        // Render around display cutouts (notches / punch-holes) on Android 9+ so
+        // the WebView fills the entire physical screen instead of being letter-boxed.
+        // Combined with the safe-area CSS injected at document-start below, content
+        // still stays clear of the cutout and system bars.
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            try {
+                android.view.WindowManager.LayoutParams lp = getWindow().getAttributes();
+                lp.layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams
+                    .LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+                getWindow().setAttributes(lp);
+            } catch (Throwable ignored) {}
+        }
     }
+
 
     private void injectDocumentStartFeatureLocks() {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return;
