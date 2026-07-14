@@ -765,6 +765,11 @@ allprojects { project ->
       ensurePerm('android.permission.CAMERA')
     }
     if (ENABLE_BILLING) ensurePerm('com.android.vending.BILLING')
+    if (ADMOB_APP_ID) {
+      // Required by Play Console for apps targeting API 33+ that use AdMob.
+      // Without this, upload fails with "Advertising ID permission not declared".
+      ensurePerm('com.google.android.gms.permission.AD_ID')
+    }
 
     if (ADMOB_APP_ID) {
       // tools:replace prevents manifest-merger conflicts when the AdMob plugin
@@ -830,6 +835,8 @@ if (ADMOB_APP_ID && exists(path.join(androidDir, 'app', 'src', 'main', 'AndroidM
   )
   if (!m.includes(ADMOB_APP_ID))
     validationErrors.push('AndroidManifest.xml is missing the AdMob APPLICATION_ID after patching')
+  if (!m.includes('com.google.android.gms.permission.AD_ID'))
+    validationErrors.push('AndroidManifest.xml is missing com.google.android.gms.permission.AD_ID (required by Play Console for AdMob apps targeting API 33+)')
 }
 if (exists(pkgPath)) {
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
