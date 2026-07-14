@@ -149,10 +149,10 @@ function forceAndroidSdkCompatibility(source) {
     .replace(/targetSdk\s+rootProject\.ext\.targetSdkVersion/g, 'targetSdk 35')
     .replace(/targetSdkVersion\s*=\s*rootProject\.ext\.targetSdkVersion/g, 'targetSdkVersion = 35')
     .replace(/targetSdk\s*=\s*rootProject\.ext\.targetSdkVersion/g, 'targetSdk = 35')
-    .replace(/minSdkVersion\s+rootProject\.ext\.minSdkVersion/g, 'minSdk 23')
-    .replace(/minSdk\s+rootProject\.ext\.minSdkVersion/g, 'minSdk 23')
-    .replace(/minSdkVersion\s*=\s*rootProject\.ext\.minSdkVersion/g, 'minSdkVersion = 23')
-    .replace(/minSdk\s*=\s*rootProject\.ext\.minSdkVersion/g, 'minSdk = 23')
+    .replace(/minSdkVersion\s+rootProject\.ext\.minSdkVersion/g, 'minSdk 22')
+    .replace(/minSdk\s+rootProject\.ext\.minSdkVersion/g, 'minSdk 22')
+    .replace(/minSdkVersion\s*=\s*rootProject\.ext\.minSdkVersion/g, 'minSdkVersion = 22')
+    .replace(/minSdk\s*=\s*rootProject\.ext\.minSdkVersion/g, 'minSdk = 22')
     .replace(/compileSdkVersion\s+\d+/g, 'compileSdkVersion 35')
     .replace(/compileSdk\s+\d+/g, 'compileSdk 35')
     .replace(/compileSdkVersion\s*=\s*\d+/g, 'compileSdkVersion = 35')
@@ -165,12 +165,12 @@ function forceAndroidSdkCompatibility(source) {
     .replace(/targetSdk\s*=\s*\d+/g, 'targetSdk = 35')
     .replace(/targetSdkVersion\(\s*\d+\s*\)/g, 'targetSdkVersion(35)')
     .replace(/targetSdk\(\s*\d+\s*\)/g, 'targetSdk(35)')
-    .replace(/minSdkVersion\s+\d+/g, 'minSdkVersion 23')
-    .replace(/minSdk\s+\d+/g, 'minSdk 23')
-    .replace(/minSdkVersion\s*=\s*\d+/g, 'minSdkVersion = 23')
-    .replace(/minSdk\s*=\s*\d+/g, 'minSdk = 23')
-    .replace(/minSdkVersion\(\s*\d+\s*\)/g, 'minSdkVersion(23)')
-    .replace(/minSdk\(\s*\d+\s*\)/g, 'minSdk(23)')
+    .replace(/minSdkVersion\s+\d+/g, 'minSdkVersion 22')
+    .replace(/minSdk\s+\d+/g, 'minSdk 22')
+    .replace(/minSdkVersion\s*=\s*\d+/g, 'minSdkVersion = 22')
+    .replace(/minSdk\s*=\s*\d+/g, 'minSdk = 22')
+    .replace(/minSdkVersion\(\s*\d+\s*\)/g, 'minSdkVersion(22)')
+    .replace(/minSdk\(\s*\d+\s*\)/g, 'minSdk(22)')
 
   if (!/\bcompileSdk(?:Version)?\b/.test(next)) {
     next = next.replace(/android\s*\{/, (m) => `${m}\n    compileSdk 35`)
@@ -181,7 +181,7 @@ function forceAndroidSdkCompatibility(source) {
   }
 
   if (!/\bminSdk(?:Version)?\b/.test(next)) {
-    next = next.replace(/defaultConfig\s*\{/, (m) => `${m}\n        minSdk 23`)
+    next = next.replace(/defaultConfig\s*\{/, (m) => `${m}\n        minSdk 22`)
   }
 
   return next
@@ -594,7 +594,7 @@ export function patchAndroid(root) {
     const next = forceAndroidSdkCompatibility(vars)
     if (next !== vars) {
       fs.writeFileSync(variablesGradle, next)
-      log('Locked android/variables.gradle to compileSdk 35, targetSdk 35, and minSdk 23')
+      log('Locked android/variables.gradle to compileSdk 35, targetSdk 35, and minSdk 22')
     }
   }
 

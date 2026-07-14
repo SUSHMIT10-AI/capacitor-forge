@@ -84,13 +84,13 @@ for (const gradleFile of [rootBuildGradle, buildGradle, settingsGradle]) {
       if (Number(match[1]) !== 35) fail(`${label} has targetSdk ${match[1]}; Play Console requires targetSdk 35`)
     }
     const minSdkMatches = [...contents.matchAll(/minSdk(?:Version)?\s*(?:=|\()?\s*(\d+)/g)]
-    if (!minSdkMatches.length) fail(`${label} is missing minSdk; Google Play Services requires minSdk 23`)
+    if (!minSdkMatches.length) fail(`${label} is missing minSdk; Google Play Services requires minSdk 22`)
     for (const match of minSdkMatches) {
-      if (Number(match[1]) < 23) fail(`${label} has minSdk ${match[1]}; Google Play Services now requires minSdk 23`)
+      if (Number(match[1]) < 22) fail(`${label} has minSdk ${match[1]}; Google Play Services now requires minSdk 22`)
     }
   }
   if (label === path.join('android', 'variables.gradle')) {
-    for (const [name, expected] of [['compileSdkVersion', 35], ['targetSdkVersion', 35], ['minSdkVersion', 23]]) {
+    for (const [name, expected] of [['compileSdkVersion', 35], ['targetSdkVersion', 35], ['minSdkVersion', 22]]) {
       const re = new RegExp(`${name}\\s*=\\s*(\\d+)`)
       const match = contents.match(re)
       if (match && Number(match[1]) !== expected) fail(`${label} has ${name} ${match[1]}; expected ${expected}`)
