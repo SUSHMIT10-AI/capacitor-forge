@@ -765,6 +765,11 @@ allprojects { project ->
       ensurePerm('android.permission.CAMERA')
     }
     if (ENABLE_BILLING) ensurePerm('com.android.vending.BILLING')
+    if (ADMOB_APP_ID) {
+      // Required by Play Console for apps targeting API 33+ that use AdMob.
+      // Without this, upload fails with "Advertising ID permission not declared".
+      ensurePerm('com.google.android.gms.permission.AD_ID')
+    }
 
     if (ADMOB_APP_ID) {
       // tools:replace prevents manifest-merger conflicts when the AdMob plugin
