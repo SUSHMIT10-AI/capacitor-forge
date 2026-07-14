@@ -835,6 +835,8 @@ if (ADMOB_APP_ID && exists(path.join(androidDir, 'app', 'src', 'main', 'AndroidM
   )
   if (!m.includes(ADMOB_APP_ID))
     validationErrors.push('AndroidManifest.xml is missing the AdMob APPLICATION_ID after patching')
+  if (!m.includes('com.google.android.gms.permission.AD_ID'))
+    validationErrors.push('AndroidManifest.xml is missing com.google.android.gms.permission.AD_ID (required by Play Console for AdMob apps targeting API 33+)')
 }
 if (exists(pkgPath)) {
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
