@@ -341,8 +341,12 @@ workflows:
                 write_adaptive_icon_xmls
                 $IM /tmp/app_icon_normalized.png -filter Lanczos -resize 384x384^ -gravity center -background none -extent 384x384 -strip "$RES_DIR/drawable/splash_icon.png"
               else
-                echo "Uploaded icon could not be processed; using default launcher icon."
-                generate_default_resources
+                echo "ImageMagick unavailable/failed on uploaded icon — trying Python/Pillow fallback so we still use YOUR artwork."
+                python3 -c "import PIL" 2>/dev/null || python3 -m pip install --quiet --disable-pip-version-check pillow || true
+                if ! generate_resources_from_upload_with_pil "$ICON_TMP"; then
+                  echo "⚠️  PIL fallback also failed — generating a neutral placeholder icon (no builder branding)."
+                  generate_default_resources
+                fi
               fi
             else
               echo "Icon download failed; using default launcher icon."
