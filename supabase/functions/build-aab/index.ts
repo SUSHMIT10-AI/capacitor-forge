@@ -219,7 +219,9 @@ Deno.serve(async (req) => {
           ADMOB_REWARDED_ID: build.admob_rewarded_id ?? '',
           ADMOB_REWARDED_INTERSTITIAL_ID: build.admob_rewarded_interstitial_id ?? '',
           ADMOB_APP_OPEN_ID: build.admob_app_open_id ?? '',
-          ADMOB_TEST_MODE: String(!!build.admob_test_mode),
+          // Production-only: AdMob test mode is force-disabled regardless of any
+          // legacy DB flag, so builds always serve real ad units from the IDs above.
+          ADMOB_TEST_MODE: 'false',
           APP_URL: build.url ?? '',
           APP_NAME: build.app_name,
           PACKAGE_NAME: packageName,

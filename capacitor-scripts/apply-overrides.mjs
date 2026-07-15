@@ -40,7 +40,9 @@ const ADMOB_INTERSTITIAL_ID = (process.env.ADMOB_INTERSTITIAL_ID || '').trim()
 const ADMOB_REWARDED_ID = (process.env.ADMOB_REWARDED_ID || '').trim()
 const ADMOB_REWARDED_INTERSTITIAL_ID = (process.env.ADMOB_REWARDED_INTERSTITIAL_ID || '').trim()
 const ADMOB_APP_OPEN_ID = (process.env.ADMOB_APP_OPEN_ID || '').trim()
-const ADMOB_TEST_MODE = (process.env.ADMOB_TEST_MODE || '').toLowerCase() === 'true'
+// AdMob test mode is force-disabled at the build layer — production AABs must
+// always serve real ad creatives from the user's configured ad unit IDs.
+const ADMOB_TEST_MODE = false
 const ENABLE_BILLING = (process.env.ENABLE_BILLING || '').toLowerCase() === 'true'
 const EXTRA_PLUGINS = (process.env.EXTRA_PLUGINS || '')
   .split(',')

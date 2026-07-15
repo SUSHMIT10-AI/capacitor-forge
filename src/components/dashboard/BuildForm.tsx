@@ -853,12 +853,8 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between rounded-md border border-border p-3">
-                <div>
-                  <p className="text-xs font-heading font-medium text-foreground">Use AdMob Test Ads</p>
-                  <p className="text-[10px] text-muted-foreground">Forces the SDK to serve Google's official test creatives — safe while developing. Turn OFF before publishing.</p>
-                </div>
-                <Switch checked={admobTestMode} onCheckedChange={setAdmobTestMode} />
+              <div className="rounded-md border border-border bg-muted/30 p-3 text-[11px] text-muted-foreground">
+                <b>Production ads only.</b> Test creatives are permanently disabled — every build serves real ads from the ad unit IDs above. Make sure the IDs belong to your own AdMob account before publishing.
               </div>
 
               <div className="rounded-md border border-border bg-muted/30 p-3 text-[11px] text-muted-foreground">
