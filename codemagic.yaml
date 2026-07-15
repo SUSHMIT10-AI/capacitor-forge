@@ -529,21 +529,41 @@ workflows:
       - name: Verify AAB signature (release, not debug)
         working_directory: android-template
         script: |
-          AAB_FILE=$(find app/build/outputs/bundle/release -name "*.aab" | head -n 1)
-          if [ -z "$AAB_FILE" ]; then
+          set -euo pipefail
+          AAB_FILE=$(find app/build/outputs/bundle/release -name "*.aab" | head -n 1 || true)
+          if [ -z "${AAB_FILE:-}" ]; then
             echo "No AAB produced, skipping."
             exit 0
           fi
           echo "Inspecting $AAB_FILE"
-          # AAB is a zip; META-INF contains the JAR signature block.
-          unzip -p "$AAB_FILE" META-INF/*.RSA > /tmp/aab.rsa 2>/dev/null || \
-            unzip -p "$AAB_FILE" META-INF/*.DSA > /tmp/aab.rsa 2>/dev/null || \
-            unzip -p "$AAB_FILE" META-INF/*.EC  > /tmp/aab.rsa 2>/dev/null
-          if [ ! -s /tmp/aab.rsa ]; then
-            echo "❌ AAB has no signature block — it is unsigned."
+          rm -f /tmp/aab.sig /tmp/aab_cert.txt /tmp/aab_entries.txt
+
+          # AAB is a zip; META-INF contains the JAR signature block (.RSA/.DSA/.EC).
+          # Wildcard matching with `unzip -p` can be inconsistent across unzip
+          # implementations (bsdunzip vs Info-ZIP), so list entries first and
+          # extract the exact signature filename to a fixed path.
+          unzip -Z1 "$AAB_FILE" > /tmp/aab_entries.txt
+          SIG_ENTRY=$(grep -iE '^META-INF/.*\.(RSA|DSA|EC)$' /tmp/aab_entries.txt | head -n 1 || true)
+
+          if [ -z "$SIG_ENTRY" ]; then
+            echo "❌ AAB has no META-INF signature block — it is unsigned."
+            echo "Entries containing META-INF:"
+            grep -i '^META-INF/' /tmp/aab_entries.txt || true
             exit 1
           fi
-          keytool -printcert -file /tmp/aab.rsa > /tmp/aab_cert.txt 2>&1 || true
+
+          echo "Found signature entry: $SIG_ENTRY"
+          unzip -p "$AAB_FILE" "$SIG_ENTRY" > /tmp/aab.sig
+          if [ ! -s /tmp/aab.sig ]; then
+            echo "❌ Could not extract signature block from AAB."
+            exit 1
+          fi
+
+          keytool -printcert -file /tmp/aab.sig > /tmp/aab_cert.txt 2>&1 || {
+            echo "❌ keytool failed to parse the signature block:"
+            cat /tmp/aab_cert.txt
+            exit 1
+          }
           cat /tmp/aab_cert.txt
           if grep -qi "CN=Android Debug" /tmp/aab_cert.txt; then
             echo "❌ AAB is signed with the DEBUG keystore. Play Console will reject this upload."
