@@ -1100,16 +1100,17 @@ workflows:
                           details.because 'Mobile Ads 23.6.0 companion UMP release remains compatible with minSdk 22'
                       }
                   }
-                  resolutionStrategy.force \
-                      'com.google.android.gms:play-services-ads:23.6.0', \
-                      'com.google.android.gms:play-services-ads-lite:23.6.0', \
-                      'com.google.android.gms:play-services-ads-base:23.6.0', \
-                      'com.google.android.gms:play-services-ads-identifier:18.0.0', \
-                      'com.google.android.gms:play-services-appset:16.0.1', \
-                      'com.google.android.gms:play-services-base:18.7.2', \
-                      'com.google.android.gms:play-services-basement:18.7.1', \
-                      'com.google.android.gms:play-services-tasks:18.3.2', \
+                  resolutionStrategy.force(
+                      'com.google.android.gms:play-services-ads:23.6.0',
+                      'com.google.android.gms:play-services-ads-lite:23.6.0',
+                      'com.google.android.gms:play-services-ads-base:23.6.0',
+                      'com.google.android.gms:play-services-ads-identifier:18.0.0',
+                      'com.google.android.gms:play-services-appset:16.0.1',
+                      'com.google.android.gms:play-services-base:18.7.2',
+                      'com.google.android.gms:play-services-basement:18.7.1',
+                      'com.google.android.gms:play-services-tasks:18.3.2',
                       'com.google.android.ump:user-messaging-platform:3.0.0'
+                  )
               }
           }
           GRADLE
