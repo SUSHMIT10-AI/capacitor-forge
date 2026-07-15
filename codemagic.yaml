@@ -182,20 +182,69 @@ workflows:
               '</adaptive-icon>' > "$RES_DIR/mipmap-anydpi-v26/ic_launcher.xml"
             cp "$RES_DIR/mipmap-anydpi-v26/ic_launcher.xml" "$RES_DIR/mipmap-anydpi-v26/ic_launcher_round.xml"
           }
+          # Neutral, user-branded default icon: a flat color square using the
+          # app's THEME_COLOR (falls back to a neutral gray if unset). No builder
+          # logo, no hardcoded purple circle — this keeps the AAB free of any
+          # AABForge branding when the user hasn't uploaded their own icon yet.
           generate_default_resources() {
-            echo "Generating default launcher icon without ImageMagick."
-            python3 - "$RES_DIR" <<'PY'
-          import os, struct, zlib, sys
-          res_dir = sys.argv[1]
+            echo "Generating neutral default launcher icon (no builder branding)."
+            THEME_HEX="${THEME_COLOR:-#6B7280}"
+            python3 - "$RES_DIR" "$THEME_HEX" "${APP_NAME:-App}" <<'PY'
+          import os, struct, zlib, sys, re
+          res_dir, theme_hex, app_name = sys.argv[1], sys.argv[2], sys.argv[3]
+          m = re.fullmatch(r"#?([0-9a-fA-F]{6})", theme_hex.strip() or "")
+          if m:
+              r, g, b = int(m.group(1)[0:2], 16), int(m.group(1)[2:4], 16), int(m.group(1)[4:6], 16)
+          else:
+              r, g, b = 0x6B, 0x72, 0x80
+          initial = (app_name.strip() or "A")[0].upper()
+          # 5x7 pixel font — just enough to render a single centered initial glyph so
+          # the neutral icon still feels like the user's app instead of a blank tile.
+          font = {
+              'A': ["01110","10001","10001","11111","10001","10001","10001"],
+              'B': ["11110","10001","10001","11110","10001","10001","11110"],
+              'C': ["01111","10000","10000","10000","10000","10000","01111"],
+              'D': ["11110","10001","10001","10001","10001","10001","11110"],
+              'E': ["11111","10000","10000","11110","10000","10000","11111"],
+              'F': ["11111","10000","10000","11110","10000","10000","10000"],
+              'G': ["01111","10000","10000","10111","10001","10001","01111"],
+              'H': ["10001","10001","10001","11111","10001","10001","10001"],
+              'I': ["11111","00100","00100","00100","00100","00100","11111"],
+              'J': ["00001","00001","00001","00001","10001","10001","01110"],
+              'K': ["10001","10010","10100","11000","10100","10010","10001"],
+              'L': ["10000","10000","10000","10000","10000","10000","11111"],
+              'M': ["10001","11011","10101","10101","10001","10001","10001"],
+              'N': ["10001","11001","10101","10101","10011","10001","10001"],
+              'O': ["01110","10001","10001","10001","10001","10001","01110"],
+              'P': ["11110","10001","10001","11110","10000","10000","10000"],
+              'Q': ["01110","10001","10001","10001","10101","10011","01111"],
+              'R': ["11110","10001","10001","11110","10100","10010","10001"],
+              'S': ["01111","10000","10000","01110","00001","00001","11110"],
+              'T': ["11111","00100","00100","00100","00100","00100","00100"],
+              'U': ["10001","10001","10001","10001","10001","10001","01110"],
+              'V': ["10001","10001","10001","10001","10001","01010","00100"],
+              'W': ["10001","10001","10001","10101","10101","11011","10001"],
+              'X': ["10001","10001","01010","00100","01010","10001","10001"],
+              'Y': ["10001","10001","01010","00100","00100","00100","00100"],
+              'Z': ["11111","00001","00010","00100","01000","10000","11111"],
+          }
+          glyph = font.get(initial, font['A'])
           def png(path, size):
-              cx = cy = size / 2
-              radius = size * 0.27
+              gh, gw = 7, 5
+              scale = max(1, int(size * 0.5 / gh))
+              off_x = (size - gw * scale) // 2
+              off_y = (size - gh * scale) // 2
               rows = []
               for y in range(size):
                   row = bytearray([0])
                   for x in range(size):
-                      inside = (x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2 <= radius ** 2
-                      row.extend((255, 255, 255, 255) if inside else (79, 70, 229, 255))
+                      cx = (x - off_x) // scale if scale > 0 else -1
+                      cy = (y - off_y) // scale if scale > 0 else -1
+                      on = 0 <= cx < gw and 0 <= cy < gh and glyph[cy][cx] == '1'
+                      if on:
+                          row.extend((255, 255, 255, 255))
+                      else:
+                          row.extend((r, g, b, 255))
                   rows.append(bytes(row))
               raw = b''.join(rows)
               def chunk(tag, data):
@@ -211,6 +260,45 @@ workflows:
                   png(os.path.join(out, name), legacy_size)
               png(os.path.join(out, 'ic_launcher_foreground.png'), adaptive_size)
           png(os.path.join(res_dir, 'drawable', 'splash_icon.png'), 192)
+          PY
+            write_adaptive_icon_xmls
+          }
+          # PIL-based fallback: when the user DID upload an icon but ImageMagick
+          # is unavailable / fails, we must NOT fall back to the builder default.
+          # Instead, resize the user's uploaded PNG directly with Python so the
+          # generated launcher icons are still the user's artwork.
+          generate_resources_from_upload_with_pil() {
+            local SRC="$1"
+            echo "Using Python/Pillow fallback to resize uploaded icon."
+            python3 - "$RES_DIR" "$SRC" <<'PY' || return 1
+          import os, sys
+          try:
+              from PIL import Image
+          except Exception:
+              sys.exit(2)
+          res_dir, src = sys.argv[1], sys.argv[2]
+          try:
+              base = Image.open(src).convert("RGBA")
+          except Exception as e:
+              print("PIL cannot open uploaded icon:", e); sys.exit(3)
+          # Square-center-crop then resize so non-square uploads still render clean.
+          w, h = base.size
+          side = min(w, h)
+          base = base.crop(((w-side)//2, (h-side)//2, (w-side)//2+side, (h-side)//2+side))
+          for folder, legacy_size, adaptive_size in [('mipmap-mdpi',48,108),('mipmap-hdpi',72,162),('mipmap-xhdpi',96,216),('mipmap-xxhdpi',144,324),('mipmap-xxxhdpi',192,432)]:
+              out = os.path.join(res_dir, folder); os.makedirs(out, exist_ok=True)
+              legacy = base.resize((legacy_size, legacy_size), Image.LANCZOS)
+              legacy.save(os.path.join(out, 'ic_launcher.png'), 'PNG')
+              legacy.save(os.path.join(out, 'ic_launcher_round.png'), 'PNG')
+              # Adaptive foreground: place the artwork inside the 66dp safe zone.
+              inner = int(adaptive_size * 66 / 108)
+              fg = Image.new("RGBA", (adaptive_size, adaptive_size), (0,0,0,0))
+              art = base.resize((inner, inner), Image.LANCZOS)
+              fg.paste(art, ((adaptive_size-inner)//2, (adaptive_size-inner)//2), art)
+              fg.save(os.path.join(out, 'ic_launcher_foreground.png'), 'PNG')
+          splash = base.resize((384, 384), Image.LANCZOS)
+          os.makedirs(os.path.join(res_dir, 'drawable'), exist_ok=True)
+          splash.save(os.path.join(res_dir, 'drawable', 'splash_icon.png'), 'PNG')
           PY
             write_adaptive_icon_xmls
           }
