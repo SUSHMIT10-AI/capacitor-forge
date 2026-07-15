@@ -91,7 +91,7 @@ workflows:
           perl -0pi -e 's/compileSdk(?:Version)?\s+\d+/compileSdk 35/g; s/targetSdk(?:Version)?\s+\d+/targetSdk 35/g; s/minSdk(?:Version)?\s+\d+/minSdk 22/g' "$GRADLE_FILE"
           grep -Eq 'compileSdk\s+35' "$GRADLE_FILE"
           grep -Eq 'targetSdk\s+35' "$GRADLE_FILE"
-          grep -Eq 'minSdk\s+23' "$GRADLE_FILE"
+          grep -Eq 'minSdk\s+22' "$GRADLE_FILE"
           sed -n '/android {/,/defaultConfig {/p; /defaultConfig {/,/}/p' "$GRADLE_FILE" | grep -E 'compileSdk|targetSdk|minSdk' || true
           echo "✅ Android build is locked to compileSdk 35, targetSdk 35, and minSdk 22."
       - name: Normalize Gradle signing DSL
