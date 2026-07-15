@@ -180,9 +180,11 @@ Deno.serve(async (req) => {
     }
 
     if (['failed', 'canceled', 'timeout', 'skipped'].includes(status)) {
-      const detail = typeof cmBuild.message === 'string' && cmBuild.message.trim()
-        ? cmBuild.message.trim()
-        : `Codemagic build ${status}. Check Codemagic dashboard for logs.`
+      const rootCause = await getFailedBuildDetail(cmBuild, cmToken)
+      const detail = rootCause
+        ?? (typeof cmBuild.message === 'string' && cmBuild.message.trim()
+          ? cmBuild.message.trim()
+          : `Codemagic build ${status}. Check the build logs for details.`)
       await supabase
         .from('build_configs')
         .update({
@@ -222,6 +224,50 @@ async function findCodemagicBuildId(token: string, appId: string, buildId: strin
   const builds = Array.isArray(json) ? json : json?.builds ?? []
   const match = builds.find((item: any) => item?.dynamicConfig?.environment?.variables?.BUILD_ID === buildId)
   return match?._id ?? ''
+}
+
+async function getFailedBuildDetail(cmBuild: any, token: string): Promise<string | null> {
+  const steps = (cmBuild?.buildActions ?? cmBuild?.actions ?? []) as any[]
+  const failed = steps.find((s: any) => /fail|error/i.test(String(s?.status ?? '')))
+  const sub = failed?.subactions?.find((s: any) => s?.logUrl) ?? failed?.subactions?.[0] ?? failed
+  if (!sub?.logUrl) return null
+
+  try {
+    const res = await fetch(sub.logUrl, { headers: { 'x-auth-token': token } })
+    if (!res.ok) return null
+    const text = await res.text()
+    const rootCause = extractRootCause(text)
+    if (rootCause) return rootCause
+  } catch (error) {
+    console.warn('Failed to fetch Codemagic failure log:', error)
+  }
+
+  return null
+}
+
+function extractRootCause(log: string): string | null {
+  const markers = [
+    'FAILURE: Build failed with an exception.',
+    '* What went wrong:',
+    'Execution failed for task',
+    'Manifest merger failed',
+    'Duplicate class',
+    'Could not resolve all files',
+    'Could not find',
+  ]
+  const first = markers
+    .map((marker) => ({ marker, index: log.indexOf(marker) }))
+    .filter((item) => item.index >= 0)
+    .sort((a, b) => a.index - b.index)[0]
+
+  if (!first) return null
+  const snippet = log.slice(first.index, Math.min(log.length, first.index + 2500))
+  return snippet
+    .replace(/\x1b\[[0-9;]*m/g, '')
+    .replace(/&gt;/g, '>')
+    .replace(/&lt;/g, '<')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }
 
 function getAabTargetSdk(aab: Uint8Array): string | null {

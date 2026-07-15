@@ -16,27 +16,27 @@ const HeroSection = () => {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-xs font-heading text-primary">
             <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse-glow" />
-            Developer-first AAB converter
+            Play-ready Android builder
           </div>
 
           {/* Heading */}
           <h1 className="font-heading text-4xl font-bold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
-            <span className="text-foreground">Convert APK to</span>
+            <span className="text-foreground">Build Play-ready</span>
             <br />
-            <span className="text-gradient">.AAB in seconds</span>
+            <span className="text-gradient">Android AABs</span>
           </h1>
 
           {/* Subtitle */}
           <p className="mx-auto max-w-xl text-lg text-muted-foreground leading-relaxed">
-            Upload your APK, get a signed Android App Bundle ready for Google Play Store submission.
-            No CLI setup. No hassle.
+            Generate signed AAB/APK builds from URLs or Capacitor projects with minSdk 22,
+            all Google Play ABIs, release signing, and production AdMob support.
           </p>
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button variant="hero" size="lg" asChild>
               <Link to="/auth?tab=signup" className="gap-2">
-                Start Converting <ArrowRight className="h-4 w-4" />
+                Start Building <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
             <Button variant="hero-outline" size="lg" asChild>
@@ -57,19 +57,19 @@ const HeroSection = () => {
             <div className="font-heading text-sm text-left space-y-2">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <span className="text-primary">$</span>
-                <span>upload myapp.apk</span>
+                <span>upload mht-cet-master.zip</span>
               </div>
               <div className="flex items-center gap-2 text-success">
                 <Upload className="h-3.5 w-3.5" />
-                <span>Uploading... 100% complete</span>
+                <span>Project uploaded — overrides applied</span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <span className="text-primary">$</span>
-                <span>convert --sign --output myapp.aab</span>
+                <span>build --min-sdk 22 --abis all --sign --ads production</span>
               </div>
               <div className="flex items-center gap-2 text-success">
                 <Package className="h-3.5 w-3.5" />
-                <span>✓ myapp.aab generated — ready for Play Store</span>
+                <span>✓ AAB generated — ready for Google Play</span>
               </div>
             </div>
           </div>

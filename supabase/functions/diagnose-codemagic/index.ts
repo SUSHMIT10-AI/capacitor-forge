@@ -32,10 +32,12 @@ Deno.serve(async (req) => {
     const failed = failedSteps[0]
     const sub = failed?.subactions?.find((s: any) => s?.logUrl) ?? failed?.subactions?.[0]
     let logTail: string | null = null
+    let logRootCause: string | null = null
     if (sub?.logUrl) {
       const r = await fetch(sub.logUrl, { headers: { 'x-auth-token': token } })
       const txt = await r.text()
-      logTail = txt.length > 16000 ? txt.slice(-16000) : txt
+      logTail = txt.length > 60000 ? txt.slice(-60000) : txt
+      logRootCause = extractRootCause(txt)
     }
 
     const actionSummary = steps.map((s: any) => ({
@@ -57,7 +59,8 @@ Deno.serve(async (req) => {
       if (!actionSub?.logUrl) continue
       const r = await fetch(actionSub.logUrl, { headers: { 'x-auth-token': token } })
       const txt = await r.text()
-      interestingLogs[name || `action_${Object.keys(interestingLogs).length + 1}`] = txt.length > 6000 ? txt.slice(-6000) : txt
+      const rootCause = extractRootCause(txt)
+      interestingLogs[name || `action_${Object.keys(interestingLogs).length + 1}`] = rootCause ?? (txt.length > 60000 ? txt.slice(-60000) : txt)
     }
 
     const artifacts = (build?.artefacts ?? build?.artifacts ?? []).map((a: any) => ({
@@ -76,6 +79,7 @@ Deno.serve(async (req) => {
       actions: actionSummary,
       artifacts,
       failed_step: failed?.name,
+      log_root_cause: logRootCause,
       log_tail: logTail,
       interesting_logs: interestingLogs,
     }, 200)
@@ -130,4 +134,27 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
+}
+
+function extractRootCause(log: string): string | null {
+  const markers = [
+    'FAILURE: Build failed with an exception.',
+    '* What went wrong:',
+    'Execution failed for task',
+    'A failure occurred while executing',
+    'Duplicate class',
+    'Manifest merger failed',
+    'Could not resolve all files',
+    'Could not find',
+  ]
+
+  const first = markers
+    .map((marker) => ({ marker, index: log.indexOf(marker) }))
+    .filter((item) => item.index >= 0)
+    .sort((a, b) => a.index - b.index)[0]
+
+  if (!first) return null
+  const start = Math.max(0, first.index - 1200)
+  const end = Math.min(log.length, first.index + 24000)
+  return log.slice(start, end)
 }
