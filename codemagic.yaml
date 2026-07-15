@@ -512,10 +512,29 @@ workflows:
         script: |
           set -euo pipefail
           MANIFEST="$CM_BUILD_DIR/android-template/app/src/main/AndroidManifest.xml"
+          RES_DIR="$CM_BUILD_DIR/android-template/app/src/main/res"
           SPLASH_ENABLED="${ENABLE_NATIVE_SPLASH:-true}"
           if [ "$(echo "$SPLASH_ENABLED" | tr '[:upper:]' '[:lower:]')" != "true" ]; then
-            echo "Native splash disabled — switching launcher activity theme to Theme.AABForge."
+            echo "Native splash disabled — neutralizing splash theme, drawable and icon."
+            # 1) Launcher activity: switch to plain theme (no splash bitmap layer).
             perl -0pi -e 's|android:theme="\@style/Theme\.AABForge\.Splash"|android:theme="\@style/Theme.AABForge"|g' "$MANIFEST"
+            # 2) Neuter splash_screen.xml so any leftover theme reference draws
+            #    ONLY the plain background color — no app-icon bitmap.
+            cat > "$RES_DIR/drawable/splash_screen.xml" <<'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+              <item android:drawable="@color/splash_bg" />
+          </layer-list>
+          XML
+            # 3) Redefine Theme.AABForge.Splash to equal Theme.AABForge as a final safety net.
+            cat > "$RES_DIR/values/themes.xml" <<'XML'
+          <resources>
+              <style name="Theme.AABForge" parent="Theme.AppCompat.DayNight.NoActionBar">
+                  <item name="android:windowBackground">@color/splash_bg</item>
+              </style>
+              <style name="Theme.AABForge.Splash" parent="Theme.AABForge" />
+          </resources>
+          XML
           else
             echo "Native splash enabled — keeping Theme.AABForge.Splash on launcher activity."
           fi
