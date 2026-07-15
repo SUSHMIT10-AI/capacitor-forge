@@ -11,10 +11,10 @@ const CTASection = () => {
       <div className="container relative z-10">
         <div className="mx-auto max-w-2xl text-center glow-border rounded-2xl p-12 bg-card/30 backdrop-blur-sm space-y-6">
           <h2 className="font-heading text-3xl font-bold text-foreground">
-            Ready to convert?
+            Ready to build?
           </h2>
           <p className="text-muted-foreground">
-            Sign up for free and convert your first APK to AAB in minutes.
+            Create a signed, Play-ready Android bundle with minSdk 22 and production ads configured.
           </p>
           <Button variant="hero" size="lg" asChild>
             <Link to="/auth?tab=signup" className="gap-2">

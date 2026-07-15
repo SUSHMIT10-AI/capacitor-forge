@@ -62,6 +62,48 @@ if (ADMOB_APP_ID && !/^ca-app-pub-\d+~\d+$/.test(ADMOB_APP_ID)) {
 const log = (...a) => console.log('[apply-overrides]', ...a)
 const warn = (...a) => console.warn('[apply-overrides][warn]', ...a)
 
+const GOOGLE_PLAY_MINSDK22_MARKER = '// LOVABLE_GOOGLE_PLAY_SERVICES_MINSDK22_ALIGN'
+const GOOGLE_PLAY_MINSDK22_BLOCK = `
+
+${GOOGLE_PLAY_MINSDK22_MARKER}
+allprojects {
+    configurations.all {
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == 'com.google.android.gms') {
+                def forced = [
+                    'play-services-ads': '23.6.0',
+                    'play-services-ads-lite': '23.6.0',
+                    'play-services-ads-base': '23.6.0',
+                    'play-services-ads-identifier': '18.0.0',
+                    'play-services-appset': '16.0.1',
+                    'play-services-base': '18.7.2',
+                    'play-services-basement': '18.7.1',
+                    'play-services-tasks': '18.3.2'
+                ][details.requested.name]
+                if (forced != null) {
+                    details.useVersion forced
+                    details.because 'Keep Google Play services compatible with app minSdk 22; newer releases require minSdk 23+'
+                }
+            }
+            if (details.requested.group == 'com.google.android.ump' && details.requested.name == 'user-messaging-platform') {
+                details.useVersion '3.0.0'
+                details.because 'Mobile Ads 23.6.0 companion UMP release remains compatible with minSdk 22'
+            }
+        }
+        resolutionStrategy.force \
+            'com.google.android.gms:play-services-ads:23.6.0', \
+            'com.google.android.gms:play-services-ads-lite:23.6.0', \
+            'com.google.android.gms:play-services-ads-base:23.6.0', \
+            'com.google.android.gms:play-services-ads-identifier:18.0.0', \
+            'com.google.android.gms:play-services-appset:16.0.1', \
+            'com.google.android.gms:play-services-base:18.7.2', \
+            'com.google.android.gms:play-services-basement:18.7.1', \
+            'com.google.android.gms:play-services-tasks:18.3.2', \
+            'com.google.android.ump:user-messaging-platform:3.0.0'
+    }
+}
+`
+
 function ensureRepositoryOrder(source) {
   const repoBlock = `repositories {
         mavenCentral()
@@ -642,6 +684,12 @@ allprojects {
 `
       fs.writeFileSync(rootGradle, g)
       log('Pinned Bouncy Castle dependencies to jdk15on 1.70 for JDK 17 Android builds')
+    }
+    g = fs.readFileSync(rootGradle, 'utf8')
+    if (!g.includes(GOOGLE_PLAY_MINSDK22_MARKER)) {
+      g += GOOGLE_PLAY_MINSDK22_BLOCK
+      fs.writeFileSync(rootGradle, g)
+      log('Pinned Google Play services / Mobile Ads to minSdk 22-compatible versions')
     }
     g = fs.readFileSync(rootGradle, 'utf8')
     if (!/LOVABLE_BOUNCY_CASTLE_BUILDSCRIPT_JDK17_ALIGN/.test(g)) {

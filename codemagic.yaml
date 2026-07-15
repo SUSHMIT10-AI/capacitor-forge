@@ -35,14 +35,55 @@ workflows:
               )
           }
 
+          def alignLovableGooglePlayMinSdk22 = { cfg ->
+              cfg.resolutionStrategy.eachDependency { details ->
+                  if (details.requested.group == 'com.google.android.gms') {
+                      def forced = [
+                          'play-services-ads': '23.6.0',
+                          'play-services-ads-lite': '23.6.0',
+                          'play-services-ads-base': '23.6.0',
+                          'play-services-ads-identifier': '18.0.0',
+                          'play-services-appset': '16.0.1',
+                          'play-services-base': '18.7.2',
+                          'play-services-basement': '18.7.1',
+                          'play-services-tasks': '18.3.2'
+                      ][details.requested.name]
+                      if (forced != null) {
+                          details.useVersion forced
+                          details.because 'Keep Google Play services compatible with app minSdk 22; newer releases require minSdk 23+'
+                      }
+                  }
+                  if (details.requested.group == 'com.google.android.ump' && details.requested.name == 'user-messaging-platform') {
+                      details.useVersion '3.0.0'
+                      details.because 'Mobile Ads 23.6.0 companion UMP release remains compatible with minSdk 22'
+                  }
+              }
+              cfg.resolutionStrategy.force(
+                  'com.google.android.gms:play-services-ads:23.6.0',
+                  'com.google.android.gms:play-services-ads-lite:23.6.0',
+                  'com.google.android.gms:play-services-ads-base:23.6.0',
+                  'com.google.android.gms:play-services-ads-identifier:18.0.0',
+                  'com.google.android.gms:play-services-appset:16.0.1',
+                  'com.google.android.gms:play-services-base:18.7.2',
+                  'com.google.android.gms:play-services-basement:18.7.1',
+                  'com.google.android.gms:play-services-tasks:18.3.2',
+                  'com.google.android.ump:user-messaging-platform:3.0.0'
+              )
+          }
+
+          def alignLovableAndroidDependencies = { cfg ->
+              alignLovableBouncyCastle(cfg)
+              alignLovableGooglePlayMinSdk22(cfg)
+          }
+
           // Patch the settings-level buildscript BEFORE pluginManagement resolves AGP.
           // This is critical: AGP's transitive Bouncy Castle dependency is fetched from
           // the settings/pluginManagement classpath, which `beforeProject` runs too late for.
           gradle.beforeSettings { settings ->
-              settings.buildscript.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
+              settings.buildscript.configurations.configureEach { cfg -> alignLovableAndroidDependencies(cfg) }
           }
           gradle.settingsEvaluated { settings ->
-              settings.buildscript.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
+              settings.buildscript.configurations.configureEach { cfg -> alignLovableAndroidDependencies(cfg) }
           }
           gradle.beforeProject { project ->
               project.buildscript.repositories { repos ->
@@ -54,8 +95,8 @@ workflows:
                   repos.mavenCentral()
                   repos.google()
               }
-              project.buildscript.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
-              project.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
+              project.buildscript.configurations.configureEach { cfg -> alignLovableAndroidDependencies(cfg) }
+              project.configurations.configureEach { cfg -> alignLovableAndroidDependencies(cfg) }
           }
           GRADLE
 
@@ -612,12 +653,53 @@ workflows:
               )
           }
 
+          def alignLovableGooglePlayMinSdk22 = { cfg ->
+              cfg.resolutionStrategy.eachDependency { details ->
+                  if (details.requested.group == 'com.google.android.gms') {
+                      def forced = [
+                          'play-services-ads': '23.6.0',
+                          'play-services-ads-lite': '23.6.0',
+                          'play-services-ads-base': '23.6.0',
+                          'play-services-ads-identifier': '18.0.0',
+                          'play-services-appset': '16.0.1',
+                          'play-services-base': '18.7.2',
+                          'play-services-basement': '18.7.1',
+                          'play-services-tasks': '18.3.2'
+                      ][details.requested.name]
+                      if (forced != null) {
+                          details.useVersion forced
+                          details.because 'Keep Google Play services compatible with app minSdk 22; newer releases require minSdk 23+'
+                      }
+                  }
+                  if (details.requested.group == 'com.google.android.ump' && details.requested.name == 'user-messaging-platform') {
+                      details.useVersion '3.0.0'
+                      details.because 'Mobile Ads 23.6.0 companion UMP release remains compatible with minSdk 22'
+                  }
+              }
+              cfg.resolutionStrategy.force(
+                  'com.google.android.gms:play-services-ads:23.6.0',
+                  'com.google.android.gms:play-services-ads-lite:23.6.0',
+                  'com.google.android.gms:play-services-ads-base:23.6.0',
+                  'com.google.android.gms:play-services-ads-identifier:18.0.0',
+                  'com.google.android.gms:play-services-appset:16.0.1',
+                  'com.google.android.gms:play-services-base:18.7.2',
+                  'com.google.android.gms:play-services-basement:18.7.1',
+                  'com.google.android.gms:play-services-tasks:18.3.2',
+                  'com.google.android.ump:user-messaging-platform:3.0.0'
+              )
+          }
+
+          def alignLovableAndroidDependencies = { cfg ->
+              alignLovableBouncyCastle(cfg)
+              alignLovableGooglePlayMinSdk22(cfg)
+          }
+
           // Patch the settings-level buildscript BEFORE pluginManagement resolves AGP.
           gradle.beforeSettings { settings ->
-              settings.buildscript.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
+              settings.buildscript.configurations.configureEach { cfg -> alignLovableAndroidDependencies(cfg) }
           }
           gradle.settingsEvaluated { settings ->
-              settings.buildscript.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
+              settings.buildscript.configurations.configureEach { cfg -> alignLovableAndroidDependencies(cfg) }
           }
           gradle.beforeProject { project ->
               project.buildscript.repositories { repos ->
@@ -629,8 +711,8 @@ workflows:
                   repos.mavenCentral()
                   repos.google()
               }
-              project.buildscript.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
-              project.configurations.configureEach { cfg -> alignLovableBouncyCastle(cfg) }
+              project.buildscript.configurations.configureEach { cfg -> alignLovableAndroidDependencies(cfg) }
+              project.configurations.configureEach { cfg -> alignLovableAndroidDependencies(cfg) }
           }
           GRADLE
 
@@ -989,9 +1071,55 @@ workflows:
           else
             echo "Bouncy Castle JDK 17 alignment already present"
           fi
+          GPS_MARKER="// LOVABLE_GOOGLE_PLAY_SERVICES_MINSDK22_ALIGN"
+          if ! grep -q "$GPS_MARKER" "$ROOT_GRADLE"; then
+            cat >> "$ROOT_GRADLE" <<'GRADLE'
+
+          // LOVABLE_GOOGLE_PLAY_SERVICES_MINSDK22_ALIGN
+          allprojects {
+              configurations.all {
+                  resolutionStrategy.eachDependency { details ->
+                      if (details.requested.group == 'com.google.android.gms') {
+                          def forced = [
+                              'play-services-ads': '23.6.0',
+                              'play-services-ads-lite': '23.6.0',
+                              'play-services-ads-base': '23.6.0',
+                              'play-services-ads-identifier': '18.0.0',
+                              'play-services-appset': '16.0.1',
+                              'play-services-base': '18.7.2',
+                              'play-services-basement': '18.7.1',
+                              'play-services-tasks': '18.3.2'
+                          ][details.requested.name]
+                          if (forced != null) {
+                              details.useVersion forced
+                              details.because 'Keep Google Play services compatible with app minSdk 22; newer releases require minSdk 23+'
+                          }
+                      }
+                      if (details.requested.group == 'com.google.android.ump' && details.requested.name == 'user-messaging-platform') {
+                          details.useVersion '3.0.0'
+                          details.because 'Mobile Ads 23.6.0 companion UMP release remains compatible with minSdk 22'
+                      }
+                  }
+                  resolutionStrategy.force \
+                      'com.google.android.gms:play-services-ads:23.6.0', \
+                      'com.google.android.gms:play-services-ads-lite:23.6.0', \
+                      'com.google.android.gms:play-services-ads-base:23.6.0', \
+                      'com.google.android.gms:play-services-ads-identifier:18.0.0', \
+                      'com.google.android.gms:play-services-appset:16.0.1', \
+                      'com.google.android.gms:play-services-base:18.7.2', \
+                      'com.google.android.gms:play-services-basement:18.7.1', \
+                      'com.google.android.gms:play-services-tasks:18.3.2', \
+                      'com.google.android.ump:user-messaging-platform:3.0.0'
+              }
+          }
+          GRADLE
+            echo "✅ Pinned Google Play services / Mobile Ads to minSdk 22-compatible versions"
+          else
+            echo "Google Play services minSdk 22 alignment already present"
+          fi
           INIT_SCRIPT="$HOME/.gradle/init.d/lovable-bouncycastle-jdk17.gradle"
           test -f "$INIT_SCRIPT" && grep -q 'LOVABLE_BOUNCY_CASTLE_JDK17_INIT' "$INIT_SCRIPT"
-          grep -R "LOVABLE_BOUNCY_CASTLE_JDK17_ALIGN" -n build.gradle app/build.gradle || true
+          grep -R "LOVABLE_BOUNCY_CASTLE_JDK17_ALIGN\|LOVABLE_GOOGLE_PLAY_SERVICES_MINSDK22_ALIGN" -n build.gradle app/build.gradle || true
       - name: Build Android App Bundle
         working_directory: user-project/android
         script: |

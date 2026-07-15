@@ -3,33 +3,33 @@ import { Upload, Zap, Shield, Download, Clock, Layers } from "lucide-react";
 const features = [
   {
     icon: Upload,
-    title: "Drag & Drop Upload",
-    description: "Upload APK files up to 200MB with real-time progress tracking.",
+    title: "URL or Capacitor Upload",
+    description: "Build from a web URL or upload a Capacitor project zip with real-time progress.",
   },
   {
     icon: Zap,
-    title: "Fast Conversion",
-    description: "Powered by bundletool. Convert APKs under 100MB in less than 5 minutes.",
+    title: "minSdk 22 Support",
+    description: "Keeps Android 5.1+ support while pinning Google Play services to compatible versions.",
   },
   {
     icon: Shield,
-    title: "Secure Signing",
-    description: "Upload your own keystore to sign release builds.",
+    title: "Release Signing",
+    description: "Upload your own keystore and generate Play Console-ready release artifacts.",
   },
   {
     icon: Download,
     title: "Instant Download",
-    description: "Download your signed .AAB directly from the dashboard.",
+    description: "Download signed .AAB and optional .APK artifacts directly from the dashboard.",
   },
   {
     icon: Clock,
     title: "Conversion History",
-    description: "Track all your conversions with timestamps, status, and error logs.",
+    description: "Track every build with timestamps, status, and clearer failure diagnostics.",
   },
   {
     icon: Layers,
-    title: "Split APK Support",
-    description: "Handle multiple APK architectures and merge them into a single AAB.",
+    title: "All Google Play ABIs",
+    description: "Bundle armeabi-v7a, arm64-v8a, x86, and x86_64 for broad device coverage.",
   },
 ];
 

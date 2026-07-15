@@ -1,8 +1,8 @@
 const steps = [
   {
     number: "01",
-    title: "Upload your APK",
-    description: "Drag and drop your .apk file or paste a PWA URL into the converter.",
+    title: "Upload or paste URL",
+    description: "Paste a web app URL or upload a Capacitor project zip from the dashboard.",
   },
   {
     number: "02",
@@ -11,8 +11,8 @@ const steps = [
   },
   {
     number: "03",
-    title: "Convert to AAB",
-    description: "Our engine processes your file and generates a signed .aab bundle.",
+    title: "Build AAB/APK",
+    description: "The workflow locks target API 35, minSdk 22, all ABIs, AdMob, and signing.",
   },
   {
     number: "04",
@@ -33,7 +33,7 @@ const HowItWorksSection = () => {
             How it works
           </h2>
           <p className="text-muted-foreground max-w-lg mx-auto">
-            Four simple steps from APK to Play Store-ready AAB.
+            Four steps from project upload to a Play Store-ready Android bundle.
           </p>
         </div>
 
