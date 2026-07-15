@@ -1006,6 +1006,154 @@ workflows:
           echo "---- Detected Capacitor plugins ----"
           grep -E "Found [0-9]+ Capacitor plugin" /tmp/cap-sync.log || true
           grep -E "^\s+@[^@]+@" /tmp/cap-sync.log || true
+      - name: Install user launcher icon (Capacitor)
+        script: |
+          set -euo pipefail
+          # The Capacitor project ships with the default Capacitor "C" logo. Overwrite
+          # every launcher icon in user-project/android with the user's uploaded icon
+          # so the built AAB carries ONLY the icon the user provided in the dashboard.
+          RES_DIR="$CM_BUILD_DIR/user-project/android/app/src/main/res"
+          if [ ! -d "$RES_DIR" ]; then
+            echo "⚠️  No android res dir at $RES_DIR — skipping icon install."
+            exit 0
+          fi
+          # Wipe every stale/default launcher icon (Capacitor default + any prior build output)
+          # so nothing but the user's artwork can end up in the final AAB.
+          find "$RES_DIR" -type f \( \
+              -name 'ic_launcher.png' -o \
+              -name 'ic_launcher_round.png' -o \
+              -name 'ic_launcher_foreground.png' -o \
+              -name 'ic_launcher_background.png' -o \
+              -name 'ic_launcher.webp' -o \
+              -name 'ic_launcher_round.webp' -o \
+              -name 'ic_launcher_foreground.webp' -o \
+              -name 'ic_launcher_background.webp' \
+            \) -print -delete || true
+          find "$RES_DIR" -type f \( \
+              -name 'ic_launcher.xml' -o \
+              -name 'ic_launcher_round.xml' -o \
+              -name 'ic_launcher_foreground.xml' -o \
+              -name 'ic_launcher_background.xml' \
+            \) -print -delete || true
+
+          write_adaptive_xmls() {
+            mkdir -p "$RES_DIR/mipmap-anydpi-v26"
+            printf '%s\n' \
+              '<?xml version="1.0" encoding="utf-8"?>' \
+              '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">' \
+              '    <background android:drawable="@color/ic_launcher_background" />' \
+              '    <foreground android:drawable="@mipmap/ic_launcher_foreground" />' \
+              '</adaptive-icon>' > "$RES_DIR/mipmap-anydpi-v26/ic_launcher.xml"
+            cp "$RES_DIR/mipmap-anydpi-v26/ic_launcher.xml" "$RES_DIR/mipmap-anydpi-v26/ic_launcher_round.xml"
+            # Ensure the background color the adaptive-icon xml references exists.
+            VALUES_DIR="$RES_DIR/values"
+            mkdir -p "$VALUES_DIR"
+            COLORS_FILE="$VALUES_DIR/ic_launcher_background.xml"
+            THEME_HEX_RAW="${THEME_COLOR:-#FFFFFF}"
+            case "$THEME_HEX_RAW" in
+              \#*) THEME_HEX="$THEME_HEX_RAW" ;;
+              *)   THEME_HEX="#$THEME_HEX_RAW" ;;
+            esac
+            printf '%s\n' \
+              '<?xml version="1.0" encoding="utf-8"?>' \
+              '<resources>' \
+              "    <color name=\"ic_launcher_background\">${THEME_HEX}</color>" \
+              '</resources>' > "$COLORS_FILE"
+          }
+
+          if [ -z "${ICON_URL:-}" ]; then
+            echo "No ICON_URL provided — generating a neutral placeholder icon (no builder / Capacitor branding)."
+            python3 - "$RES_DIR" "${THEME_COLOR:-#6B7280}" "${APP_NAME:-App}" <<'PY'
+          import os, struct, zlib, sys, re
+          res_dir, theme_hex, app_name = sys.argv[1], sys.argv[2], sys.argv[3]
+          m = re.fullmatch(r"#?([0-9a-fA-F]{6})", (theme_hex or '').strip())
+          r,g,b = (int(m.group(1)[0:2],16), int(m.group(1)[2:4],16), int(m.group(1)[4:6],16)) if m else (0x6B,0x72,0x80)
+          initial = (app_name.strip() or 'A')[0].upper()
+          def png(path, size):
+              rows = []
+              for y in range(size):
+                  row = bytearray([0])
+                  for x in range(size):
+                      row.extend((r,g,b,255))
+                  rows.append(bytes(row))
+              raw = b''.join(rows)
+              def chunk(tag, data):
+                  return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data) & 0xffffffff)
+              data = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', size, size, 8, 6, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(raw, 9)) + chunk(b'IEND', b'')
+              os.makedirs(os.path.dirname(path), exist_ok=True)
+              open(path,'wb').write(data)
+          for folder, legacy, adaptive in [('mipmap-mdpi',48,108),('mipmap-hdpi',72,162),('mipmap-xhdpi',96,216),('mipmap-xxhdpi',144,324),('mipmap-xxxhdpi',192,432)]:
+              out = os.path.join(res_dir, folder); os.makedirs(out, exist_ok=True)
+              png(os.path.join(out,'ic_launcher.png'), legacy)
+              png(os.path.join(out,'ic_launcher_round.png'), legacy)
+              png(os.path.join(out,'ic_launcher_foreground.png'), adaptive)
+          PY
+            write_adaptive_xmls
+            echo "✅ Neutral placeholder launcher icons installed."
+            exit 0
+          fi
+
+          ICON_TMP="/tmp/cap_app_icon_src"
+          echo "Downloading user icon from ICON_URL"
+          if ! curl -fsSL "$ICON_URL" -o "$ICON_TMP"; then
+            echo "❌ Failed to download user icon from ICON_URL — refusing to ship the default Capacitor logo."
+            exit 1
+          fi
+
+          # Prefer ImageMagick for best quality; fall back to Pillow. We refuse to
+          # continue if BOTH fail, because falling back to the default Capacitor icon
+          # would ship builder branding the user explicitly did not choose.
+          if ! command -v magick >/dev/null 2>&1 && ! command -v convert >/dev/null 2>&1; then
+            (brew install imagemagick 2>/dev/null || sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick) >/dev/null 2>&1 || true
+          fi
+          if command -v magick >/dev/null 2>&1; then IM="magick"; elif command -v convert >/dev/null 2>&1; then IM="convert"; else IM=""; fi
+
+          installed=0
+          if [ -n "$IM" ] && $IM "$ICON_TMP" -auto-orient -alpha on -filter Lanczos -resize 1024x1024^ -gravity center -background none -extent 1024x1024 -strip /tmp/cap_app_icon_norm.png; then
+            for entry in "mipmap-mdpi:48:108" "mipmap-hdpi:72:162" "mipmap-xhdpi:96:216" "mipmap-xxhdpi:144:324" "mipmap-xxxhdpi:192:432"; do
+              FOLDER="${entry%%:*}"; REST="${entry#*:}"; LEG="${REST%%:*}"; ADA="${REST##*:}"
+              mkdir -p "$RES_DIR/$FOLDER"
+              $IM /tmp/cap_app_icon_norm.png -filter Lanczos -resize ${LEG}x${LEG}^ -gravity center -background none -extent ${LEG}x${LEG} -strip "$RES_DIR/$FOLDER/ic_launcher.png"
+              $IM /tmp/cap_app_icon_norm.png -filter Lanczos -resize ${LEG}x${LEG}^ -gravity center -background none -extent ${LEG}x${LEG} -strip "$RES_DIR/$FOLDER/ic_launcher_round.png"
+              INNER=$(( ADA * 66 / 108 ))
+              $IM /tmp/cap_app_icon_norm.png -filter Lanczos -resize ${INNER}x${INNER} -gravity center -background none -extent ${ADA}x${ADA} -strip "$RES_DIR/$FOLDER/ic_launcher_foreground.png"
+            done
+            installed=1
+          fi
+
+          if [ "$installed" != "1" ]; then
+            echo "ImageMagick unavailable — using Python/Pillow fallback."
+            python3 -c "import PIL" 2>/dev/null || python3 -m pip install --quiet --disable-pip-version-check pillow || true
+            python3 - "$RES_DIR" "$ICON_TMP" <<'PY' || exit 1
+          import os, sys
+          from PIL import Image
+          res_dir, src = sys.argv[1], sys.argv[2]
+          base = Image.open(src).convert("RGBA")
+          w,h = base.size; side = min(w,h)
+          base = base.crop(((w-side)//2,(h-side)//2,(w-side)//2+side,(h-side)//2+side))
+          for folder, leg, ada in [('mipmap-mdpi',48,108),('mipmap-hdpi',72,162),('mipmap-xhdpi',96,216),('mipmap-xxhdpi',144,324),('mipmap-xxxhdpi',192,432)]:
+              out = os.path.join(res_dir, folder); os.makedirs(out, exist_ok=True)
+              legacy = base.resize((leg,leg), Image.LANCZOS)
+              legacy.save(os.path.join(out,'ic_launcher.png'),'PNG')
+              legacy.save(os.path.join(out,'ic_launcher_round.png'),'PNG')
+              inner = int(ada * 66/108)
+              fg = Image.new("RGBA",(ada,ada),(0,0,0,0))
+              art = base.resize((inner,inner), Image.LANCZOS)
+              fg.paste(art, ((ada-inner)//2,(ada-inner)//2), art)
+              fg.save(os.path.join(out,'ic_launcher_foreground.png'),'PNG')
+          PY
+          fi
+          write_adaptive_xmls
+
+          # Verify every mipmap bucket now carries the user's icon.
+          MISSING=0
+          for d in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
+            for f in ic_launcher.png ic_launcher_round.png ic_launcher_foreground.png; do
+              [ -s "$RES_DIR/$d/$f" ] || { echo "❌ Missing $RES_DIR/$d/$f"; MISSING=1; }
+            done
+          done
+          [ "$MISSING" = "0" ] || exit 1
+          echo "✅ User-uploaded icon installed into all Capacitor mipmap buckets."
       - name: Validate generated Android project
         script: |
           set -euo pipefail
