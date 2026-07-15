@@ -104,6 +104,24 @@ public class MainActivity extends AppCompatActivity {
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
+        // Clipboard OFF: suppress the system long-press "Copy/Cut/Paste" action mode
+        // so the user cannot bypass the JS clipboard lock via native text selection.
+        if (!BuildConfig.ENABLE_CLIPBOARD) {
+            webView.setLongClickable(false);
+            webView.setHapticFeedbackEnabled(false);
+            webView.setOnLongClickListener(v -> true);
+            android.view.ActionMode.Callback nullCb = new android.view.ActionMode.Callback() {
+                @Override public boolean onCreateActionMode(android.view.ActionMode mode, android.view.Menu menu) { return false; }
+                @Override public boolean onPrepareActionMode(android.view.ActionMode mode, android.view.Menu menu) { return false; }
+                @Override public boolean onActionItemClicked(android.view.ActionMode mode, android.view.MenuItem item) { return false; }
+                @Override public void onDestroyActionMode(android.view.ActionMode mode) { }
+            };
+            try {
+                webView.setCustomInsertionActionModeCallback(nullCb);
+                webView.setCustomSelectionActionModeCallback(nullCb);
+            } catch (Throwable ignored) {}
+        }
+
         if (BuildConfig.ENABLE_PULL_TO_REFRESH) {
             swipe = new SwipeRefreshLayout(this);
             swipe.addView(webView);
