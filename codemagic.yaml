@@ -929,13 +929,22 @@ workflows:
         working_directory: user-project
         script: |
           set -euo pipefail
+          # If android/ exists but is missing the generated Capacitor assets
+          # (capacitor.plugins.json), it means the folder was uploaded without
+          # ever being synced. `cap update` bails with ENOENT in that case, so
+          # nuke it and let `cap add` regenerate a clean, fully-wired platform.
+          if [ -d android ] && [ ! -f android/app/src/main/assets/capacitor.plugins.json ]; then
+            echo "⚠️  android/ present but capacitor.plugins.json missing — removing stale platform"
+            rm -rf android
+          fi
           if [ ! -d android ]; then
             echo "No android/ — running npx cap add android"
             npx cap add android | tee /tmp/cap-add.log
           else
-            echo "android/ present — running npx cap update android"
-            npx cap update android | tee /tmp/cap-update.log
+            echo "android/ present — running npx cap sync android"
+            npx cap sync android | tee /tmp/cap-sync-initial.log
           fi
+
       - name: Re-apply overrides after platform regen
         script: |
           set -euo pipefail
