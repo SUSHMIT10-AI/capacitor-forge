@@ -117,6 +117,10 @@ if (fs.existsSync(manifestPath)) {
   if (!/android\.permission\.INTERNET/.test(m)) fail('AndroidManifest missing INTERNET permission')
   if (ADMOB_APP_ID && !m.includes(ADMOB_APP_ID))
     fail(`AndroidManifest missing AdMob APPLICATION_ID (${ADMOB_APP_ID})`)
+  const invalidTheme = m.match(/android:theme="(?!@style\/)[^"]+"/)
+  if (invalidTheme) {
+    fail(`AndroidManifest has an invalid theme reference: ${invalidTheme[0]}. Theme values must start with @style/.`)
+  }
 }
 
 if (fs.existsSync(pkgJson)) {
