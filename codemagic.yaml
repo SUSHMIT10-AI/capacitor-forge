@@ -1156,6 +1156,73 @@ workflows:
           done
           [ "$MISSING" = "0" ] || exit 1
           echo "✅ User-uploaded icon installed into all Capacitor mipmap buckets."
+      - name: Honor ENABLE_NATIVE_SPLASH toggle (Capacitor)
+        script: |
+          set -euo pipefail
+          SPLASH_ENABLED="${ENABLE_NATIVE_SPLASH:-true}"
+          if [ "$(echo "$SPLASH_ENABLED" | tr '[:upper:]' '[:lower:]')" = "true" ]; then
+            echo "Native splash enabled — leaving Capacitor splash assets in place."
+            exit 0
+          fi
+          echo "Native splash disabled — stripping Capacitor splash drawables + themes."
+          ANDROID_APP="$CM_BUILD_DIR/user-project/android/app"
+          RES_DIR="$ANDROID_APP/src/main/res"
+          MANIFEST="$ANDROID_APP/src/main/AndroidManifest.xml"
+          # 1) Delete any Capacitor-generated splash drawables so no bitmap
+          #    can be referenced at launch.
+          find "$RES_DIR" -type f \( -iname 'splash.png' -o -iname 'splash.webp' -o -iname 'splash.jpg' -o -iname 'splash.xml' -o -iname 'splash_screen.png' -o -iname 'splash_screen.xml' \) -print -delete || true
+          # 2) Rewrite any remaining splash drawable references to a flat color.
+          mkdir -p "$RES_DIR/drawable" "$RES_DIR/values"
+          cat > "$RES_DIR/drawable/splash.xml" <<'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+              <item><color android:color="@android:color/transparent" /></item>
+          </layer-list>
+          XML
+          # 3) Force Capacitor's splash style to a plain, no-image window
+          #    background if styles.xml exists.
+          if [ -f "$RES_DIR/values/styles.xml" ]; then
+            python3 - <<'PY'
+          import re, pathlib
+          p = pathlib.Path("$RES_DIR/values/styles.xml".replace("$RES_DIR","$RES_DIR"))
+          PY
+          fi
+          # Simpler + reliable: overwrite styles.xml so AppTheme.NoActionBarLaunch
+          # inherits the plain AppTheme (no windowBackground pointing at splash).
+          if [ -f "$RES_DIR/values/styles.xml" ]; then
+            cp "$RES_DIR/values/styles.xml" /tmp/styles.original.xml || true
+            python3 - "$RES_DIR/values/styles.xml" <<'PY'
+          import re, sys, pathlib
+          path = pathlib.Path(sys.argv[1])
+          text = path.read_text(encoding='utf-8')
+          # Drop any windowBackground / windowSplashScreenAnimatedIcon that
+          # points at a splash drawable inside the AppTheme.NoActionBarLaunch
+          # style so no logo bitmap is drawn at launch.
+          text = re.sub(
+              r'<item name="android:windowBackground">@drawable/splash</item>\s*',
+              '<item name="android:windowBackground">@android:color/white</item>',
+              text,
+          )
+          text = re.sub(
+              r'<item name="android:windowSplashScreenAnimatedIcon">[^<]+</item>\s*',
+              '',
+              text,
+          )
+          text = re.sub(
+              r'<item name="android:windowSplashScreenBackground">[^<]+</item>\s*',
+              '',
+              text,
+          )
+          path.write_text(text, encoding='utf-8')
+          print("Neutralized splash references in styles.xml")
+          PY
+          fi
+          # 4) Point the launcher activity at the plain AppTheme so even the
+          #    initial window has no splash bitmap.
+          if [ -f "$MANIFEST" ]; then
+            perl -0pi -e 's|android:theme="\@style/AppTheme\.NoActionBarLaunch"|android:theme="@style/AppTheme.NoActionBar"|g' "$MANIFEST" || true
+          fi
+          echo "✅ Capacitor splash neutralized (ENABLE_NATIVE_SPLASH=false)."
       - name: Validate generated Android project
         script: |
           set -euo pipefail
