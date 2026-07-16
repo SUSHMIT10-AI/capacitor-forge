@@ -304,12 +304,31 @@ function patchCapacitorConfigJson() {
       ...(cfg.plugins.AdMob || {}),
     }
   }
-  cfg.plugins.SplashScreen = {
-    launchShowDuration: 1500,
-    launchAutoHide: true,
-    backgroundColor: '#ffffff',
-    ...(cfg.plugins.SplashScreen || {}),
+  if (ENABLE_NATIVE_SPLASH) {
+    cfg.plugins.SplashScreen = {
+      launchShowDuration: 1500,
+      launchAutoHide: true,
+      backgroundColor: '#ffffff',
+      ...(cfg.plugins.SplashScreen || {}),
+    }
+  } else {
+    // Splash disabled → force zero-duration + immediate auto-hide so the
+    // Capacitor SplashScreen plugin never renders the app icon at launch.
+    // We overwrite any user-supplied values because the build-form toggle
+    // must win over stale project config.
+    cfg.plugins.SplashScreen = {
+      launchShowDuration: 0,
+      launchAutoHide: true,
+      launchFadeOutDuration: 0,
+      backgroundColor: '#00000000',
+      showSpinner: false,
+      androidScaleType: 'CENTER_CROP',
+      splashFullScreen: false,
+      splashImmersive: false,
+    }
+    log('ENABLE_NATIVE_SPLASH=false → SplashScreen plugin neutralized')
   }
+
   fs.writeFileSync(capJsonPath, JSON.stringify(cfg, null, 2) + '\n')
   log(`Wrote capacitor.config.json appId=${APP_ID} webDir=${cfg.webDir}`)
 }
