@@ -1179,16 +1179,8 @@ workflows:
               <item><color android:color="@android:color/transparent" /></item>
           </layer-list>
           XML
-          # 3) Force Capacitor's splash style to a plain, no-image window
-          #    background if styles.xml exists.
-          if [ -f "$RES_DIR/values/styles.xml" ]; then
-            python3 - <<'PY'
-          import re, pathlib
-          p = pathlib.Path("$RES_DIR/values/styles.xml".replace("$RES_DIR","$RES_DIR"))
-          PY
-          fi
-          # Simpler + reliable: overwrite styles.xml so AppTheme.NoActionBarLaunch
-          # inherits the plain AppTheme (no windowBackground pointing at splash).
+          # 3) Neutralize splash references inside styles.xml so
+          #    AppTheme.NoActionBarLaunch stops rendering the splash bitmap.
           if [ -f "$RES_DIR/values/styles.xml" ]; then
             cp "$RES_DIR/values/styles.xml" /tmp/styles.original.xml || true
             python3 - "$RES_DIR/values/styles.xml" <<'PY'
