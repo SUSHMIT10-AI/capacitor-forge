@@ -100,9 +100,14 @@ public class MainActivity extends AppCompatActivity {
 
         // Build view hierarchy: SwipeRefreshLayout > WebView (if pull-to-refresh enabled)
         webView = new FeatureLockedWebView(this);
-        // Hardware-accelerated layer = smoother scroll & animations
-        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-        webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        // Note: don't force LAYER_TYPE_HARDWARE on the WebView itself — WebView is already
+        // hardware-accelerated at the window level, and forcing a hardware layer here causes
+        // janky/laggy scrolling on many devices. LAYER_TYPE_NONE lets the platform decide.
+        webView.setLayerType(View.LAYER_TYPE_NONE, null);
+        // Allow the natural edge overscroll effect so fling gestures settle smoothly.
+        webView.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
+        webView.setScrollbarFadingEnabled(true);
+        webView.setNestedScrollingEnabled(true);
 
         // Clipboard OFF: suppress the system long-press "Copy/Cut/Paste" action mode
         // so the user cannot bypass the JS clipboard lock via native text selection.
