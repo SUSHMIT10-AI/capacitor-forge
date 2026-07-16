@@ -44,6 +44,10 @@ const ADMOB_APP_OPEN_ID = (process.env.ADMOB_APP_OPEN_ID || '').trim()
 // always serve real ad creatives from the user's configured ad unit IDs.
 const ADMOB_TEST_MODE = false
 const ENABLE_BILLING = (process.env.ENABLE_BILLING || '').toLowerCase() === 'true'
+// When the user disables the native splash toggle in the build form, we
+// completely neuter the Capacitor SplashScreen plugin so no logo/bitmap
+// flashes at launch. Default = true (splash on) to match legacy behavior.
+const ENABLE_NATIVE_SPLASH = (process.env.ENABLE_NATIVE_SPLASH || 'true').toLowerCase() === 'true'
 const EXTRA_PLUGINS = (process.env.EXTRA_PLUGINS || '')
   .split(',')
   .map((s) => s.trim())
@@ -300,12 +304,31 @@ function patchCapacitorConfigJson() {
       ...(cfg.plugins.AdMob || {}),
     }
   }
-  cfg.plugins.SplashScreen = {
-    launchShowDuration: 1500,
-    launchAutoHide: true,
-    backgroundColor: '#ffffff',
-    ...(cfg.plugins.SplashScreen || {}),
+  if (ENABLE_NATIVE_SPLASH) {
+    cfg.plugins.SplashScreen = {
+      launchShowDuration: 1500,
+      launchAutoHide: true,
+      backgroundColor: '#ffffff',
+      ...(cfg.plugins.SplashScreen || {}),
+    }
+  } else {
+    // Splash disabled → force zero-duration + immediate auto-hide so the
+    // Capacitor SplashScreen plugin never renders the app icon at launch.
+    // We overwrite any user-supplied values because the build-form toggle
+    // must win over stale project config.
+    cfg.plugins.SplashScreen = {
+      launchShowDuration: 0,
+      launchAutoHide: true,
+      launchFadeOutDuration: 0,
+      backgroundColor: '#00000000',
+      showSpinner: false,
+      androidScaleType: 'CENTER_CROP',
+      splashFullScreen: false,
+      splashImmersive: false,
+    }
+    log('ENABLE_NATIVE_SPLASH=false → SplashScreen plugin neutralized')
   }
+
   fs.writeFileSync(capJsonPath, JSON.stringify(cfg, null, 2) + '\n')
   log(`Wrote capacitor.config.json appId=${APP_ID} webDir=${cfg.webDir}`)
 }
