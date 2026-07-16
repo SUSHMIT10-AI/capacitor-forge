@@ -945,6 +945,7 @@ workflows:
           VERSION_NAME="$VERSION_NAME" \
           VERSION_CODE="$VERSION_CODE" \
           ADMOB_APP_ID="${ADMOB_APP_ID:-}" ADMOB_BANNER_ID="${ADMOB_BANNER_ID:-}" ADMOB_INTERSTITIAL_ID="${ADMOB_INTERSTITIAL_ID:-}" ADMOB_REWARDED_ID="${ADMOB_REWARDED_ID:-}" ADMOB_REWARDED_INTERSTITIAL_ID="${ADMOB_REWARDED_INTERSTITIAL_ID:-}" ADMOB_APP_OPEN_ID="${ADMOB_APP_OPEN_ID:-}" ADMOB_TEST_MODE="${ADMOB_TEST_MODE:-false}" \
+          ENABLE_NATIVE_SPLASH="${ENABLE_NATIVE_SPLASH:-true}" \
             node "$CM_BUILD_DIR/capacitor-scripts/apply-overrides.mjs"
       - name: Force Android SDK compatibility
         working_directory: user-project
