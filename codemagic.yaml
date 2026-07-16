@@ -1239,7 +1239,23 @@ workflows:
           # 4) Point the launcher activity at the plain AppTheme so even the
           #    initial window has no splash bitmap.
           if [ -f "$MANIFEST" ]; then
-            perl -0pi -e 's|android:theme="\@style/AppTheme\.NoActionBarLaunch"|android:theme="@style/AppTheme.NoActionBar"|g' "$MANIFEST" || true
+            # Use Python instead of perl here: perl replacement strings treat
+            # @style as an array variable and silently turn it into
+            # /AppTheme.NoActionBar, which breaks Android resource linking.
+            python3 - "$MANIFEST" <<'PY'
+          import pathlib, sys
+          path = pathlib.Path(sys.argv[1])
+          text = path.read_text(encoding='utf-8')
+          text = text.replace(
+              'android:theme="@style/AppTheme.NoActionBarLaunch"',
+              'android:theme="@style/AppTheme.NoActionBar"',
+          )
+          text = text.replace(
+              'android:theme="/AppTheme.NoActionBar"',
+              'android:theme="@style/AppTheme.NoActionBar"',
+          )
+          path.write_text(text, encoding='utf-8')
+          PY
           fi
           echo "✅ Capacitor splash neutralized (ENABLE_NATIVE_SPLASH=false)."
       - name: Validate generated Android project
