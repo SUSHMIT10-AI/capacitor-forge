@@ -44,6 +44,10 @@ const ADMOB_APP_OPEN_ID = (process.env.ADMOB_APP_OPEN_ID || '').trim()
 // always serve real ad creatives from the user's configured ad unit IDs.
 const ADMOB_TEST_MODE = false
 const ENABLE_BILLING = (process.env.ENABLE_BILLING || '').toLowerCase() === 'true'
+// When the user disables the native splash toggle in the build form, we
+// completely neuter the Capacitor SplashScreen plugin so no logo/bitmap
+// flashes at launch. Default = true (splash on) to match legacy behavior.
+const ENABLE_NATIVE_SPLASH = (process.env.ENABLE_NATIVE_SPLASH || 'true').toLowerCase() === 'true'
 const EXTRA_PLUGINS = (process.env.EXTRA_PLUGINS || '')
   .split(',')
   .map((s) => s.trim())
