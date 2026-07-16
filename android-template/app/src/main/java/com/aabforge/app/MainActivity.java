@@ -993,5 +993,28 @@ public class MainActivity extends AppCompatActivity {
             }
             return super.onTouchEvent(event);
         }
+
+        // Killing text selection at the source when clipboard is disabled. Returning
+        // null from startActionMode prevents the WebView's internal content view from
+        // ever presenting the system "Copy / Cut / Paste / Share" floating toolbar,
+        // which was the path bypassing setCustomSelectionActionModeCallback.
+        @Override
+        public android.view.ActionMode startActionMode(android.view.ActionMode.Callback callback) {
+            if (!BuildConfig.ENABLE_CLIPBOARD) return null;
+            return super.startActionMode(callback);
+        }
+
+        @Override
+        public android.view.ActionMode startActionMode(android.view.ActionMode.Callback callback, int type) {
+            if (!BuildConfig.ENABLE_CLIPBOARD) return null;
+            return super.startActionMode(callback, type);
+        }
+
+        @Override
+        public boolean performLongClick() {
+            if (!BuildConfig.ENABLE_CLIPBOARD) return true;
+            return super.performLongClick();
+        }
     }
 }
+

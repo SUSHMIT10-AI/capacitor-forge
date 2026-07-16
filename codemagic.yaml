@@ -535,8 +535,26 @@ workflows:
               <style name="Theme.AABForge.Splash" parent="Theme.AABForge" />
           </resources>
           XML
+            # 4) Android 12+ system SplashScreen: even after we swap the launcher
+            #    theme, the platform still auto-shows a splash using the launcher
+            #    icon on windowSplashScreenAnimatedIcon. Neutralize it here.
+            mkdir -p "$RES_DIR/values-v31"
+            cat > "$RES_DIR/values-v31/themes.xml" <<'XML'
+          <resources>
+              <style name="Theme.AABForge" parent="Theme.AppCompat.DayNight.NoActionBar">
+                  <item name="android:windowBackground">@color/splash_bg</item>
+                  <item name="android:windowSplashScreenBackground">@color/splash_bg</item>
+                  <item name="android:windowSplashScreenAnimatedIcon">@android:color/transparent</item>
+                  <item name="android:windowSplashScreenIconBackgroundColor">@color/splash_bg</item>
+                  <item name="android:windowSplashScreenAnimationDuration">0</item>
+              </style>
+              <style name="Theme.AABForge.Splash" parent="Theme.AABForge" />
+          </resources>
+          XML
           else
             echo "Native splash enabled — keeping Theme.AABForge.Splash on launcher activity."
+            # Ensure no stale v31 override from a previous disabled-splash build sneaks in.
+            rm -f "$RES_DIR/values-v31/themes.xml" || true
           fi
       - name: Ensure Gradle wrapper exists
         working_directory: android-template
