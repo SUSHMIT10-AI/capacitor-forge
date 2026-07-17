@@ -868,6 +868,20 @@ allprojects { project ->
       ensurePerm('com.google.android.gms.permission.AD_ID')
     }
 
+    // 16 KB page-size compatibility — ensure <application> declares
+    // android:extractNativeLibs="false" so the OS mmap's the .so files
+    // directly from the APK at their 16 KB alignment (Play requirement).
+    if (/<application\b/.test(m)) {
+      if (!/android:extractNativeLibs\s*=/.test(m)) {
+        m = m.replace(/<application\b([^>]*)>/, (_full, attrs) =>
+          `<application${attrs} android:extractNativeLibs="false">`,
+        )
+      } else {
+        m = m.replace(/android:extractNativeLibs\s*=\s*"[^"]*"/, 'android:extractNativeLibs="false"')
+      }
+    }
+
+
 
     if (ADMOB_APP_ID) {
       // tools:replace prevents manifest-merger conflicts when the AdMob plugin
