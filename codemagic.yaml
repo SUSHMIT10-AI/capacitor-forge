@@ -498,7 +498,38 @@ workflows:
               add("android.permission.WRITE_CALENDAR")
           if enabled("KEEP_SCREEN_ON") or enabled("ENABLE_PUSH_NOTIFICATIONS"):
               add("android.permission.WAKE_LOCK")
+          # Google Play Console requires com.google.android.gms.permission.AD_ID
+          # for apps that use the Ads SDK when targeting API 33+. The AdMob
+          # plugin AAR usually merges it in transitively, but we declare it
+          # explicitly so it is ALWAYS present in the final merged manifest of
+          # the AAB uploaded to Play (which is what Play Console inspects).
+          # When ads are disabled we insert a tools:node="remove" entry so the
+          # permission is stripped from the merged manifest and Play Console
+          # does not require the "Advertising ID" data-safety declaration.
+          admob_configured = bool((os.environ.get("ADMOB_APP_ID") or "").strip())
+          if enabled("ENABLE_ADMOB", admob_configured) or admob_configured:
+              add("com.google.android.gms.permission.AD_ID")
+          else:
+              permissions.append(
+                  '    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />'
+              )
           text = open(manifest_path, encoding="utf-8").read()
+          # Ensure xmlns:tools is declared so tools:node="remove" is honored.
+          if "xmlns:tools=" not in text:
+              text = text.replace(
+                  "<manifest ",
+                  '<manifest xmlns:tools="http://schemas.android.com/tools" ',
+                  1,
+              )
+          # The template already hardcodes AD_ID as a baseline — strip it here
+          # so this step is the single source of truth (avoids duplicate perms
+          # and lets us switch to tools:node="remove" when ads are disabled).
+          import re as _re
+          text = _re.sub(
+              r'\n\s*<uses-permission[^>]*android:name="com\.google\.android\.gms\.permission\.AD_ID"[^/]*/>',
+              '',
+              text,
+          )
           marker = "\n    <!-- Optional native permissions are inserted by codemagic.yaml only when enabled. -->"
           block = marker + ("\n" + "\n".join(permissions) if permissions else "")
           if marker not in text:
@@ -508,6 +539,7 @@ workflows:
           print("Enabled manifest permissions:")
           print("\n".join(permissions) if permissions else "  none")
           PY
+
       - name: Honor ENABLE_NATIVE_SPLASH toggle
         script: |
           set -euo pipefail
