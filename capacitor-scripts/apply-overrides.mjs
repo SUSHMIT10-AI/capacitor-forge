@@ -839,7 +839,15 @@ allprojects { project ->
         (_match, attrs) => `<manifest${attrs} xmlns:tools="http://schemas.android.com/tools">`,
       )
     }
-    const ensurePerm = (perm) => {
+    const stripPerm = (perm) => {
+      const escaped = perm.replace(/\./g, '\\.')
+      m = m.replace(
+        new RegExp(`\\n\\s*<uses-permission[^>]+android:name=["']${escaped}["'][^>]*(?:/>|>\\s*</uses-permission>)`, 'g'),
+        '',
+      )
+    }
+    const ensurePerm = (perm, forcePositive = false) => {
+      if (forcePositive) stripPerm(perm)
       if (!new RegExp(`uses-permission[^>]+${perm.replace(/\./g, '\\.')}`).test(m)) {
         m = m.replace(
           /<manifest([^>]*)>/,
@@ -860,13 +868,10 @@ allprojects { project ->
       ensurePerm('android.permission.CAMERA')
     }
     if (ENABLE_BILLING) ensurePerm('com.android.vending.BILLING')
-    // Google Play Console requires com.google.android.gms.permission.AD_ID to
-    // be declared for apps targeting API 33+ that use the Ads SDK (AdMob).
-    // We add it whenever AdMob is configured OR the plugin is installed,
-    // because the plugin pulls in play-services-ads transitively.
-    if (ADMOB_APP_ID || installedPlugins.has('@capacitor-community/admob')) {
-      ensurePerm('com.google.android.gms.permission.AD_ID')
-    }
+    // Google Play Console checks the uploaded AAB manifest for Android 13+
+    // advertising ID declarations. Always keep the positive permission and
+    // remove any stale tools:node="remove" entry from older builder runs.
+    ensurePerm('com.google.android.gms.permission.AD_ID', true)
 
     // 16 KB page-size compatibility — ensure <application> declares
     // android:extractNativeLibs="false" so the OS mmap's the .so files
@@ -940,15 +945,13 @@ if (process.env.REQUIRE_ANDROID === 'true' && !exists(androidDir)) {
     'android/ directory missing — run `npx cap add android` before validation or remove REQUIRE_ANDROID=true',
   )
 }
-if (ADMOB_APP_ID && exists(path.join(androidDir, 'app', 'src', 'main', 'AndroidManifest.xml'))) {
-  const m = fs.readFileSync(
-    path.join(androidDir, 'app', 'src', 'main', 'AndroidManifest.xml'),
-    'utf8',
-  )
-  if (!m.includes(ADMOB_APP_ID))
+const manifestFile = path.join(androidDir, 'app', 'src', 'main', 'AndroidManifest.xml')
+if (exists(manifestFile)) {
+  const m = fs.readFileSync(manifestFile, 'utf8')
+  if (!m.includes('com.google.android.gms.permission.AD_ID') || /com\.google\.android\.gms\.permission\.AD_ID["'][^>]*tools:node=["']remove["']/.test(m))
+    validationErrors.push('AndroidManifest.xml must contain a positive com.google.android.gms.permission.AD_ID declaration for Play Console Android 13+ advertising ID checks')
+  if (ADMOB_APP_ID && !m.includes(ADMOB_APP_ID))
     validationErrors.push('AndroidManifest.xml is missing the AdMob APPLICATION_ID after patching')
-  if (!m.includes('com.google.android.gms.permission.AD_ID'))
-    validationErrors.push('AndroidManifest.xml is missing com.google.android.gms.permission.AD_ID (required by Play Console for AdMob apps targeting API 33+)')
 }
 if (exists(pkgPath)) {
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))

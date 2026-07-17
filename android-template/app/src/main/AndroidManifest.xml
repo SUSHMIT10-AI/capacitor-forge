@@ -7,9 +7,9 @@
 
     <!-- Google Play Services Ads (AdMob) — required for apps targeting API 33+ that read
          the Advertising ID. Without this, Play Console rejects the AAB with
-         "Advertising ID permission declaration missing". apply-overrides.mjs also
-         re-inserts this at build time when ADMOB_APP_ID is set, but we bake it into
-         the template so AdMob-ready builds are covered even before overrides run. -->
+         "Advertising ID permission declaration missing". The builder also re-inserts
+         and verifies this permission so the final uploaded artifact always matches
+         the Play Console advertising ID declaration. -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
 
     <!-- Optional native permissions are inserted by codemagic.yaml only when enabled. -->

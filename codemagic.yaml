@@ -498,21 +498,12 @@ workflows:
               add("android.permission.WRITE_CALENDAR")
           if enabled("KEEP_SCREEN_ON") or enabled("ENABLE_PUSH_NOTIFICATIONS"):
               add("android.permission.WAKE_LOCK")
-          # Google Play Console requires com.google.android.gms.permission.AD_ID
-          # for apps that use the Ads SDK when targeting API 33+. The AdMob
-          # plugin AAR usually merges it in transitively, but we declare it
-          # explicitly so it is ALWAYS present in the final merged manifest of
-          # the AAB uploaded to Play (which is what Play Console inspects).
-          # When ads are disabled we insert a tools:node="remove" entry so the
-          # permission is stripped from the merged manifest and Play Console
-          # does not require the "Advertising ID" data-safety declaration.
-          admob_configured = bool((os.environ.get("ADMOB_APP_ID") or "").strip())
-          if enabled("ENABLE_ADMOB", admob_configured) or admob_configured:
-              add("com.google.android.gms.permission.AD_ID")
-          else:
-              permissions.append(
-                  '    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />'
-              )
+          # Google Play Console checks the ACTUAL uploaded AAB manifest. If the
+          # app's Play declaration says it uses advertising ID, the AAB must
+          # contain this permission for Android 13+ targets. Always declare it
+          # here; never emit tools:node="remove", because that strips the final
+          # merged permission and triggers the Play Console error shown to users.
+          add("com.google.android.gms.permission.AD_ID")
           text = open(manifest_path, encoding="utf-8").read()
           # Ensure xmlns:tools is declared so tools:node="remove" is honored.
           if "xmlns:tools=" not in text:
@@ -522,8 +513,8 @@ workflows:
                   1,
               )
           # The template already hardcodes AD_ID as a baseline — strip it here
-          # so this step is the single source of truth (avoids duplicate perms
-          # and lets us switch to tools:node="remove" when ads are disabled).
+          # so this step is the single source of truth and cannot leave behind
+          # a stale tools:node="remove" entry from an earlier builder version.
           import re as _re
           text = _re.sub(
               r'\n\s*<uses-permission[^>]*android:name="com\.google\.android\.gms\.permission\.AD_ID"[^/]*/>',
@@ -706,6 +697,40 @@ workflows:
             echo "❌ No AAB or APK produced to verify."
             exit 1
           fi
+      - name: Verify advertising ID permission in release artifact
+        working_directory: android-template
+        script: |
+          set -euo pipefail
+          AAB_FILE="$(find app/build/outputs/bundle/release -name '*.aab' | head -n 1 || true)"
+          APK_FILE="$(find app/build/outputs/apk/release -name '*.apk' | head -n 1 || true)"
+          BUILD_TOOLS_DIR="$(ls -d $ANDROID_SDK_ROOT/build-tools/*/ | sort -V | tail -n 1)"
+          AAPT2="${BUILD_TOOLS_DIR}aapt2"
+
+          check_ad_id() {
+            local file="$1"
+            local kind="$2"
+            echo "Inspecting $kind advertising ID permission: $file"
+            if [ "$kind" = "AAB" ]; then
+              curl -fsSL -o /tmp/bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
+              local manifest
+              manifest="$(java -jar /tmp/bundletool.jar dump manifest --bundle="$file")"
+              echo "$manifest" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null || {
+                echo "❌ AAB is missing com.google.android.gms.permission.AD_ID. Play Console will reject the advertising ID declaration."
+                exit 1
+              }
+            else
+              "$AAPT2" dump permissions "$file" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null || {
+                echo "❌ APK is missing com.google.android.gms.permission.AD_ID."
+                exit 1
+              }
+            fi
+            echo "✅ $kind contains com.google.android.gms.permission.AD_ID."
+          }
+
+          FOUND=0
+          if [ -n "$AAB_FILE" ]; then FOUND=1; check_ad_id "$AAB_FILE" "AAB"; fi
+          if [ -n "$APK_FILE" ]; then FOUND=1; check_ad_id "$APK_FILE" "APK"; fi
+          [ "$FOUND" = "1" ] || { echo "❌ No APK/AAB artifact found to inspect."; exit 1; }
       - name: Verify APK signature (release, not debug)
         working_directory: android-template
         script: |
@@ -1594,6 +1619,40 @@ workflows:
             both) ./gradlew --init-script "$INIT_SCRIPT" --refresh-dependencies :app:assembleRelease :app:bundleRelease --no-daemon --stacktrace ;;
             *)    ./gradlew --init-script "$INIT_SCRIPT" --refresh-dependencies :app:bundleRelease --no-daemon --stacktrace ;;
           esac
+      - name: Verify advertising ID permission in Capacitor artifact
+        working_directory: user-project/android
+        script: |
+          set -euo pipefail
+          AAB_FILE="$(find app/build/outputs/bundle/release -name '*.aab' | head -n 1 || true)"
+          APK_FILE="$(find app/build/outputs/apk/release -name '*.apk' | head -n 1 || true)"
+          BUILD_TOOLS_DIR="$(ls -d $ANDROID_SDK_ROOT/build-tools/*/ | sort -V | tail -n 1)"
+          AAPT2="${BUILD_TOOLS_DIR}aapt2"
+
+          check_ad_id() {
+            local file="$1"
+            local kind="$2"
+            echo "Inspecting $kind advertising ID permission: $file"
+            if [ "$kind" = "AAB" ]; then
+              curl -fsSL -o /tmp/bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
+              local manifest
+              manifest="$(java -jar /tmp/bundletool.jar dump manifest --bundle="$file")"
+              echo "$manifest" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null || {
+                echo "❌ AAB is missing com.google.android.gms.permission.AD_ID. Play Console will reject the advertising ID declaration."
+                exit 1
+              }
+            else
+              "$AAPT2" dump permissions "$file" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null || {
+                echo "❌ APK is missing com.google.android.gms.permission.AD_ID."
+                exit 1
+              }
+            fi
+            echo "✅ $kind contains com.google.android.gms.permission.AD_ID."
+          }
+
+          FOUND=0
+          if [ -n "$AAB_FILE" ]; then FOUND=1; check_ad_id "$AAB_FILE" "AAB"; fi
+          if [ -n "$APK_FILE" ]; then FOUND=1; check_ad_id "$APK_FILE" "APK"; fi
+          [ "$FOUND" = "1" ] || { echo "❌ No APK/AAB artifact found to inspect."; exit 1; }
     artifacts:
       - user-project/android/app/build/outputs/**/*.aab
       - user-project/android/app/build/outputs/**/*.apk
