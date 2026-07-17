@@ -158,3 +158,18 @@ function extractRootCause(log: string): string | null {
   const end = Math.min(log.length, first.index + 24000)
   return log.slice(start, end)
 }
+
+function explainKnownFailure(detail: string | null): string | null {
+  if (!detail) return null
+  const normalized = detail.toLowerCase()
+  if (
+    normalized.includes('while scanning a simple key') &&
+    (normalized.includes('lovable_16kb_jnilibs') || normalized.includes('packaging {') || normalized.includes('packagingoptions {'))
+  ) {
+    return [
+      'Codemagic is still using an older malformed codemagic.yaml from the connected repository. The current builder file is fixed, but the repository branch used by Codemagic must contain the latest codemagic.yaml before starting another build.',
+      detail,
+    ].join('\n\n')
+  }
+  return detail
+}
