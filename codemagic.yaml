@@ -141,7 +141,7 @@ workflows:
           GRADLE_FILE="$CM_BUILD_DIR/android-template/app/build.gradle"
           perl -0pi -e 's/compileSdk(?:Version)?\s+\d+/compileSdk 35/g; s/targetSdk(?:Version)?\s+\d+/targetSdk 35/g; s/minSdk(?:Version)?\s+\d+/minSdk 22/g' "$GRADLE_FILE"
           echo "android.bundle.enableUncompressedNativeLibs=true" >> "$CM_BUILD_DIR/android-template/gradle.properties"
-          python3 - "$GRADLE_FILE" "${LOVABLE_NDK_VERSION:-}" <<'PY'
+          python3 - "$GRADLE_FILE" "$NDK_VERSION" <<'PY'
           import re, sys
           path, ndk = sys.argv[1], sys.argv[2]
           text = open(path, encoding='utf-8').read()
@@ -974,6 +974,20 @@ workflows:
           : "${CM_KEYSTORE:?Release keystore required}"
           : "${CM_KEYSTORE_PASSWORD:?Keystore password required}"
           echo "✅ Capacitor build inputs present"
+      - name: Install Android SDK 35, Build Tools, and NDK r28
+        script: |
+          set -euo pipefail
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" >/dev/null || true
+          NDK_PACKAGE="$("$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --list 2>/dev/null | awk -F'|' '/ndk;2[8-9]\./ {gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1}' | sort -V | tail -n 1 || true)"
+          if [ -z "$NDK_PACKAGE" ]; then NDK_PACKAGE="ndk;28.0.13004108"; fi
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "$NDK_PACKAGE" >/dev/null || true
+          NDK_VERSION="${NDK_PACKAGE#ndk;}"
+          if [ ! -d "$ANDROID_SDK_ROOT/ndk/$NDK_VERSION" ]; then
+            echo "❌ Android NDK r28+ is required for 16 KB ELF alignment but $NDK_PACKAGE was not installed."
+            exit 1
+          fi
+          echo "LOVABLE_NDK_VERSION=$NDK_VERSION" >> "$CM_ENV"
+          echo "✅ Android SDK 35, Build Tools 35, and NDK $NDK_VERSION installed for 16 KB native-library builds."
       - name: Download and unzip Capacitor project
         script: |
           set -euo pipefail
@@ -1004,6 +1018,7 @@ workflows:
           VERSION_CODE="$VERSION_CODE" \
           ADMOB_APP_ID="${ADMOB_APP_ID:-}" ADMOB_BANNER_ID="${ADMOB_BANNER_ID:-}" ADMOB_INTERSTITIAL_ID="${ADMOB_INTERSTITIAL_ID:-}" ADMOB_REWARDED_ID="${ADMOB_REWARDED_ID:-}" ADMOB_REWARDED_INTERSTITIAL_ID="${ADMOB_REWARDED_INTERSTITIAL_ID:-}" ADMOB_APP_OPEN_ID="${ADMOB_APP_OPEN_ID:-}" ADMOB_TEST_MODE="${ADMOB_TEST_MODE:-false}" \
           ENABLE_NATIVE_SPLASH="${ENABLE_NATIVE_SPLASH:-true}" \
+          LOVABLE_NDK_VERSION="${LOVABLE_NDK_VERSION:-28.0.13004108}" \
             node "$CM_BUILD_DIR/capacitor-scripts/apply-overrides.mjs"
       - name: Install npm dependencies
         working_directory: user-project
@@ -1075,6 +1090,7 @@ workflows:
           VERSION_CODE="$VERSION_CODE" \
           ADMOB_APP_ID="${ADMOB_APP_ID:-}" ADMOB_BANNER_ID="${ADMOB_BANNER_ID:-}" ADMOB_INTERSTITIAL_ID="${ADMOB_INTERSTITIAL_ID:-}" ADMOB_REWARDED_ID="${ADMOB_REWARDED_ID:-}" ADMOB_REWARDED_INTERSTITIAL_ID="${ADMOB_REWARDED_INTERSTITIAL_ID:-}" ADMOB_APP_OPEN_ID="${ADMOB_APP_OPEN_ID:-}" ADMOB_TEST_MODE="${ADMOB_TEST_MODE:-false}" \
           ENABLE_NATIVE_SPLASH="${ENABLE_NATIVE_SPLASH:-true}" \
+          LOVABLE_NDK_VERSION="${LOVABLE_NDK_VERSION:-28.0.13004108}" \
             node "$CM_BUILD_DIR/capacitor-scripts/apply-overrides.mjs"
       - name: Force Android SDK compatibility
         working_directory: user-project
@@ -1084,7 +1100,9 @@ workflows:
           from pathlib import Path
           import re
 
-          files = [Path('android/app/build.gradle'), Path('android/variables.gradle')]
+          gradle_props = Path('android/gradle.properties')
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          files = [Path('android/app/build.gradle'), Path('android/app/build.gradle.kts'), Path('android/variables.gradle')]
           for path in files:
               if not path.exists():
                   continue
@@ -1119,14 +1137,47 @@ workflows:
               text = re.sub(r'minSdk\s*=\s*\d+', 'minSdk = 22', text)
               text = re.sub(r'minSdkVersion\(\s*\d+\s*\)', 'minSdkVersion(22)', text)
               text = re.sub(r'minSdk\(\s*\d+\s*\)', 'minSdk(22)', text)
-              if path.name == 'build.gradle':
+              if path.name in ('build.gradle', 'build.gradle.kts') and path.parent.name == 'app':
                   if 'compileSdk' not in text and 'compileSdkVersion' not in text:
                       text = re.sub(r'android\s*\{', 'android {\n    compileSdk 35', text, count=1)
                   if 'targetSdk' not in text and 'targetSdkVersion' not in text:
                       text = re.sub(r'defaultConfig\s*\{', 'defaultConfig {\n        targetSdk 35', text, count=1)
                   if 'minSdk' not in text and 'minSdkVersion' not in text:
                       text = re.sub(r'defaultConfig\s*\{', 'defaultConfig {\n        minSdk 22', text, count=1)
+                  text = re.sub(r'useLegacyPackaging\s*(?:=|\()?\s*true\s*\)?', 'useLegacyPackaging = false', text)
+                  text = re.sub(r'useLegacyPackaging\s+false', 'useLegacyPackaging = false', text)
+                  if 'useLegacyPackaging = false' not in text:
+                      block = '''
+    // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 35+)
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
+'''
+                      text = re.sub(r'android\s*\{', 'android {\n' + block, text, count=1)
+                  ndk = os.environ.get('LOVABLE_NDK_VERSION', '28.0.13004108')
+                  text = re.sub(r'ndkVersion\s*=\s*["\'][^"\']+["\']', f'ndkVersion "{ndk}"', text)
+                  text = re.sub(r'ndkVersion\s+["\'][^"\']+["\']', f'ndkVersion "{ndk}"', text)
+                  if 'ndkVersion' not in text:
+                      text = re.sub(r'android\s*\{', f'android {{\n    ndkVersion "{ndk}"', text, count=1)
               path.write_text(text, encoding='utf-8')
+          if gradle_props.exists():
+              props = gradle_props.read_text(encoding='utf-8')
+          else:
+              props = ''
+          if re.search(r'^android\.bundle\.enableUncompressedNativeLibs=', props, re.M):
+              props = re.sub(r'^android\.bundle\.enableUncompressedNativeLibs=.*$', 'android.bundle.enableUncompressedNativeLibs=true', props, flags=re.M)
+          else:
+              props += ('\n' if props and not props.endswith('\n') else '') + 'android.bundle.enableUncompressedNativeLibs=true\n'
+          gradle_props.write_text(props, encoding='utf-8')
+          if manifest.exists():
+              m = manifest.read_text(encoding='utf-8')
+              if 'android:extractNativeLibs=' in m:
+                  m = re.sub(r'android:extractNativeLibs="[^"]*"', 'android:extractNativeLibs="false"', m)
+              else:
+                  m = re.sub(r'<application\b([^>]*)>', r'<application\1 android:extractNativeLibs="false">', m, count=1)
+              manifest.write_text(m, encoding='utf-8')
           print('✅ Android SDK locked to compileSdk 35, targetSdk 35, and minSdk 22')
           PY
       - name: Capacitor sync (link plugins + copy web assets)
@@ -1594,7 +1645,9 @@ workflows:
           from pathlib import Path
           import re, sys
 
-          app = Path('app/build.gradle')
+          app = Path('app/build.gradle') if Path('app/build.gradle').exists() else Path('app/build.gradle.kts')
+          gradle_props = Path('gradle.properties')
+          manifest = Path('app/src/main/AndroidManifest.xml')
           variables = Path('variables.gradle')
           for path in (app, variables):
               if not path.exists():
@@ -1641,7 +1694,39 @@ workflows:
                       text = re.sub(r'defaultConfig\s*\{', 'defaultConfig {\n        targetSdk 35', text, count=1)
                   if 'minSdk' not in text and 'minSdkVersion' not in text:
                       text = re.sub(r'defaultConfig\s*\{', 'defaultConfig {\n        minSdk 22', text, count=1)
+                  text = re.sub(r'useLegacyPackaging\s*(?:=|\()?\s*true\s*\)?', 'useLegacyPackaging = false', text)
+                  text = re.sub(r'useLegacyPackaging\s+false', 'useLegacyPackaging = false', text)
+                  if 'useLegacyPackaging = false' not in text:
+                      block = '''
+    // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 35+)
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
+'''
+                      text = re.sub(r'android\s*\{', 'android {\n' + block, text, count=1)
+                  ndk = os.environ.get('LOVABLE_NDK_VERSION', '28.0.13004108')
+                  text = re.sub(r'ndkVersion\s*=\s*["\'][^"\']+["\']', f'ndkVersion "{ndk}"', text)
+                  text = re.sub(r'ndkVersion\s+["\'][^"\']+["\']', f'ndkVersion "{ndk}"', text)
+                  if 'ndkVersion' not in text:
+                      text = re.sub(r'android\s*\{', f'android {{\n    ndkVersion "{ndk}"', text, count=1)
               path.write_text(text, encoding='utf-8')
+
+          props = gradle_props.read_text(encoding='utf-8') if gradle_props.exists() else ''
+          if re.search(r'^android\.bundle\.enableUncompressedNativeLibs=', props, re.M):
+              props = re.sub(r'^android\.bundle\.enableUncompressedNativeLibs=.*$', 'android.bundle.enableUncompressedNativeLibs=true', props, flags=re.M)
+          else:
+              props += ('\n' if props and not props.endswith('\n') else '') + 'android.bundle.enableUncompressedNativeLibs=true\n'
+          gradle_props.write_text(props, encoding='utf-8')
+
+          if manifest.exists():
+              m = manifest.read_text(encoding='utf-8')
+              if 'android:extractNativeLibs=' in m:
+                  m = re.sub(r'android:extractNativeLibs="[^"]*"', 'android:extractNativeLibs="false"', m)
+              else:
+                  m = re.sub(r'<application\b([^>]*)>', r'<application\1 android:extractNativeLibs="false">', m, count=1)
+              manifest.write_text(m, encoding='utf-8')
 
           app_text = app.read_text(encoding='utf-8')
           checks = {
@@ -1653,7 +1738,11 @@ workflows:
           for name, match in checks.items():
               if not match or match.group(1) != expected[name]:
                   raise SystemExit(f'❌ {name} is {match.group(1) if match else "missing"}; expected {expected[name]} before Gradle build')
-          print('✅ Final Android SDK check passed: compileSdk 35, targetSdk 35, minSdk 22')
+          if 'useLegacyPackaging = false' not in app_text:
+              raise SystemExit('❌ app build.gradle must set jniLibs.useLegacyPackaging=false for 16 KB page-size compatibility')
+          if 'android.bundle.enableUncompressedNativeLibs=true' not in gradle_props.read_text(encoding='utf-8'):
+              raise SystemExit('❌ gradle.properties must set android.bundle.enableUncompressedNativeLibs=true for AAB PAGE_ALIGNMENT_16K')
+          print('✅ Final Android SDK + 16 KB packaging check passed')
           PY
           chmod +x ./gradlew
           INIT_SCRIPT="$HOME/.gradle/init.d/lovable-bouncycastle-jdk17.gradle"
@@ -1698,6 +1787,16 @@ workflows:
           if [ -n "$AAB_FILE" ]; then FOUND=1; check_ad_id "$AAB_FILE" "AAB"; fi
           if [ -n "$APK_FILE" ]; then FOUND=1; check_ad_id "$APK_FILE" "APK"; fi
           [ "$FOUND" = "1" ] || { echo "❌ No APK/AAB artifact found to inspect."; exit 1; }
+      - name: Verify 16 KB page-size compatibility in Capacitor artifact
+        working_directory: user-project/android
+        script: |
+          set -euo pipefail
+          mapfile -t ARTIFACTS < <(find app/build/outputs -type f \( -name '*.aab' -o -name '*.apk' \) | sort)
+          if [ "${#ARTIFACTS[@]}" -eq 0 ]; then
+            echo "❌ No APK/AAB artifact found to inspect for 16 KB compatibility."
+            exit 1
+          fi
+          python3 "$CM_BUILD_DIR/capacitor-scripts/verify-android-16kb.py" "${ARTIFACTS[@]}"
     artifacts:
       - user-project/android/app/build/outputs/**/*.aab
       - user-project/android/app/build/outputs/**/*.apk
