@@ -136,6 +136,11 @@ def verify_so_elf_alignment(artifact: Path) -> None:
         print(f"✅ {artifact.name}: all native .so LOAD segments are 16 KB aligned.")
 
 
+def has_native_libraries(artifact: Path) -> bool:
+    with zipfile.ZipFile(artifact) as zf:
+        return any(name.endswith(".so") for name in zf.namelist())
+
+
 def verify_aab_page_alignment(aab: Path) -> None:
     jar = ensure_bundletool()
     proc = run(["java", "-jar", str(jar), "dump", "config", f"--bundle={aab}"])
@@ -173,10 +178,17 @@ def main() -> None:
             raise SystemExit(f"❌ Artifact not found: {artifact}")
         print(f"\n=== Verifying 16 KB page-size compatibility: {artifact} ===")
         suffix = artifact.suffix.lower()
+        has_native = has_native_libraries(artifact)
         if suffix == ".aab":
-            verify_aab_page_alignment(artifact)
+            if has_native:
+                verify_aab_page_alignment(artifact)
+            else:
+                print(f"✅ {artifact.name}: no native .so files found; AAB page-alignment config is not required.")
         elif suffix == ".apk":
-            verify_apk_zip_alignment(artifact)
+            if has_native:
+                verify_apk_zip_alignment(artifact)
+            else:
+                print(f"✅ {artifact.name}: no native .so files found; APK zipalign -P 16 is not required.")
         else:
             raise SystemExit(f"❌ Unsupported artifact type: {artifact}")
         verify_so_elf_alignment(artifact)

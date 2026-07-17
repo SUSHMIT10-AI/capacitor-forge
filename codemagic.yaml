@@ -1098,7 +1098,7 @@ workflows:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import re
+          import os, re
 
           gradle_props = Path('android/gradle.properties')
           manifest = Path('android/app/src/main/AndroidManifest.xml')
@@ -1441,7 +1441,7 @@ workflows:
           # Upsert release signingConfig without creating duplicate buildTypes/release blocks.
           GRADLE="android/app/build.gradle"
           python3 - "$GRADLE" <<'PY'
-          import re, sys
+          import os, re, sys
 
           path = sys.argv[1]
           src = open(path, encoding='utf-8').read()
