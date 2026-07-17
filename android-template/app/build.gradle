@@ -248,7 +248,14 @@ android {
         resources {
             excludes += ['META-INF/DEPENDENCIES', 'META-INF/LICENSE', 'META-INF/LICENSE.txt', 'META-INF/NOTICE', 'META-INF/NOTICE.txt']
         }
+        // 16 KB page-size compatibility: keep .so files uncompressed and
+        // page-aligned inside the APK so they can be mmap'd directly on
+        // devices with 16 KB memory pages (Play requirement for API 35+).
+        jniLibs {
+            useLegacyPackaging = false
+        }
     }
+
 
     bundle {
         language { enableSplit = true }
@@ -299,10 +306,13 @@ dependencies {
     }
 
     if (envEnableBilling) {
-        implementation 'com.android.billingclient:billing:6.2.1'
+        // Play Billing 7.1.1+ ships 16 KB page-aligned native code.
+        implementation 'com.android.billingclient:billing:7.1.1'
     }
 
     if (envEnableCapacitor) {
-        implementation 'com.capacitorjs:core:6.1.2'
+        // Capacitor 6.2.0+ ships .so files aligned to 16 KB pages.
+        implementation 'com.capacitorjs:core:6.2.1'
     }
+
 }

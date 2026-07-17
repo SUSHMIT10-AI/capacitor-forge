@@ -597,13 +597,16 @@ export function patchAndroid(root) {
     }
   }
 
-  /* gradle.properties — AndroidX, Jetifier, MultiDex */
+  /* gradle.properties — AndroidX, Jetifier, MultiDex, 16 KB page-size compat */
   const gradleProps = path.join(root, 'gradle.properties')
   const requiredProps = {
     'android.useAndroidX': 'true',
     'android.enableJetifier': 'true',
     'org.gradle.jvmargs': '-Xmx2048m -Dfile.encoding=UTF-8',
     'android.nonTransitiveRClass': 'true',
+    // 16 KB page-size compatibility (Play requirement for API 35+).
+    // Keeps .so files uncompressed & 16 KB-aligned inside the AAB.
+    'android.bundle.enableUncompressedNativeLibs': 'true',
   }
   let props = fs.existsSync(gradleProps) ? fs.readFileSync(gradleProps, 'utf8') : ''
   for (const [k, v] of Object.entries(requiredProps)) {
@@ -612,7 +615,8 @@ export function patchAndroid(root) {
     else props += `${props.endsWith('\n') || props === '' ? '' : '\n'}${k}=${v}\n`
   }
   fs.writeFileSync(gradleProps, props)
-  log('Ensured AndroidX / Jetifier / nonTransitiveRClass in gradle.properties')
+  log('Ensured AndroidX / Jetifier / nonTransitiveRClass / 16KB-native-libs in gradle.properties')
+
 
   /* app/build.gradle — applicationId/version, MultiDex, Google Services, Kotlin */
   const buildGradle = path.join(root, 'app', 'build.gradle')
@@ -637,6 +641,23 @@ export function patchAndroid(root) {
     if (!/androidx\.multidex:multidex/.test(g)) {
       g = g.replace(/dependencies\s*\{/, (m) => `${m}\n    implementation 'androidx.multidex:multidex:2.0.1'`)
     }
+    // 16 KB page-size compatibility — required by Google Play from Nov 2025 for
+    // apps targeting API 35+. Keep .so files uncompressed & page-aligned so
+    // they can be mmap'd directly from the APK on 16 KB-page devices.
+    if (!/LOVABLE_16KB_JNILIBS/.test(g)) {
+      const block = `
+    // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 35+)
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
+`
+      if (/android\s*\{/.test(g)) {
+        g = g.replace(/android\s*\{/, (m) => `${m}\n${block}`)
+      }
+    }
+
     // AdMob SDK — Capacitor AdMob plugin already pulls play-services-ads, but be defensive
     if (ADMOB_APP_ID && !/play-services-ads/.test(g)) {
       g = g.replace(
@@ -846,6 +867,20 @@ allprojects { project ->
     if (ADMOB_APP_ID || installedPlugins.has('@capacitor-community/admob')) {
       ensurePerm('com.google.android.gms.permission.AD_ID')
     }
+
+    // 16 KB page-size compatibility — ensure <application> declares
+    // android:extractNativeLibs="false" so the OS mmap's the .so files
+    // directly from the APK at their 16 KB alignment (Play requirement).
+    if (/<application\b/.test(m)) {
+      if (!/android:extractNativeLibs\s*=/.test(m)) {
+        m = m.replace(/<application\b([^>]*)>/, (_full, attrs) =>
+          `<application${attrs} android:extractNativeLibs="false">`,
+        )
+      } else {
+        m = m.replace(/android:extractNativeLibs\s*=\s*"[^"]*"/, 'android:extractNativeLibs="false"')
+      }
+    }
+
 
 
     if (ADMOB_APP_ID) {
