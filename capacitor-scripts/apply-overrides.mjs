@@ -236,6 +236,42 @@ function forceAndroidSdkCompatibility(source) {
   return next
 }
 
+function force16KbJniPackaging(source, isKts = false) {
+  let next = source
+    // Existing user projects sometimes explicitly opt into legacy extracted
+    // native libraries. That produces 4 KB-aligned APK entries from the AAB,
+    // which is exactly what Play Console flags. Normalize every form we see.
+    .replace(/useLegacyPackaging\s*=\s*true/g, 'useLegacyPackaging = false')
+    .replace(/useLegacyPackaging\s+true/g, 'useLegacyPackaging = false')
+    .replace(/useLegacyPackaging\s*\(\s*true\s*\)/g, 'useLegacyPackaging = false')
+    .replace(/useLegacyPackaging\s+false/g, 'useLegacyPackaging = false')
+
+  if (/useLegacyPackaging\s*=\s*false/.test(next)) return next
+
+  const block = isKts
+    ? `
+    // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 35+)
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
+`
+    : `
+    // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 35+)
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
+`
+
+  if (/android\s*\{/.test(next)) {
+    next = next.replace(/android\s*\{/, (m) => `${m}\n${block}`)
+  }
+  return next
+}
+
 /* ---------- Supported Capacitor plugin catalog ----------
  * Plugins listed here will be auto-installed when:
  *   a) the user's package.json already references them (detected)
@@ -378,9 +414,9 @@ if (fs.existsSync(pkgPath)) {
   // plugin catalog (all pinned to ^6.x). Otherwise @capacitor/core@^8 from the
   // user's project collides with @capacitor/splash-screen@^6 peer range and
   // `npm install` fails with ERESOLVE.
-  ensureDep('@capacitor/core', '^6.1.2', false, true)
-  ensureDep('@capacitor/android', '^6.1.2', false, true)
-  ensureDep('@capacitor/cli', '^6.1.2', true, true)
+  ensureDep('@capacitor/core', '^6.2.1', false, true)
+  ensureDep('@capacitor/android', '^6.2.1', false, true)
+  ensureDep('@capacitor/cli', '^6.2.1', true, true)
 
   // Also realign any user-pinned plugin to the catalog version so peer ranges
   // resolve cleanly against @capacitor/core@^6.
@@ -620,8 +656,11 @@ export function patchAndroid(root) {
 
   /* app/build.gradle — applicationId/version, MultiDex, Google Services, Kotlin */
   const buildGradle = path.join(root, 'app', 'build.gradle')
-  if (fs.existsSync(buildGradle)) {
-    let g = fs.readFileSync(buildGradle, 'utf8')
+  const buildGradleKts = path.join(root, 'app', 'build.gradle.kts')
+  const appGradlePath = fs.existsSync(buildGradle) ? buildGradle : (fs.existsSync(buildGradleKts) ? buildGradleKts : '')
+  if (appGradlePath) {
+    const isKts = appGradlePath.endsWith('.kts')
+    let g = fs.readFileSync(appGradlePath, 'utf8')
     g = g.replace(/applicationId\s+["'][^"']+["']/, `applicationId "${APP_ID}"`)
     g = g.replace(/versionCode\s+\d+/, `versionCode ${VERSION_CODE}`)
     g = g.replace(/versionName\s+["'][^"']+["']/, `versionName "${VERSION_NAME}"`)
@@ -644,18 +683,13 @@ export function patchAndroid(root) {
     // 16 KB page-size compatibility — required by Google Play from Nov 2025 for
     // apps targeting API 35+. Keep .so files uncompressed & page-aligned so
     // they can be mmap'd directly from the APK on 16 KB-page devices.
-    if (!/LOVABLE_16KB_JNILIBS/.test(g)) {
-      const block = `
-    // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 35+)
-    packagingOptions {
-        jniLibs {
-            useLegacyPackaging = false
-        }
-    }
-`
-      if (/android\s*\{/.test(g)) {
-        g = g.replace(/android\s*\{/, (m) => `${m}\n${block}`)
-      }
+    g = force16KbJniPackaging(g, isKts)
+
+    if (ENABLE_BILLING && !/com\.android\.billingclient:billing/.test(g)) {
+      g = g.replace(
+        /dependencies\s*\{/,
+        (m) => `${m}\n    implementation 'com.android.billingclient:billing:7.1.1'`,
+      )
     }
 
     // AdMob SDK — Capacitor AdMob plugin already pulls play-services-ads, but be defensive
@@ -671,7 +705,7 @@ export function patchAndroid(root) {
       g = `apply plugin: 'com.google.gms.google-services'\n${g}`
       log('Applied google-services plugin (google-services.json detected)')
     }
-    fs.writeFileSync(buildGradle, g)
+    fs.writeFileSync(appGradlePath, g)
     log(
       `Patched app/build.gradle (applicationId=${APP_ID} versionCode=${VERSION_CODE} versionName=${VERSION_NAME})`,
     )
