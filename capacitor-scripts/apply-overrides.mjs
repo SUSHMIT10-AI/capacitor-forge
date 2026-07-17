@@ -48,6 +48,7 @@ const ENABLE_BILLING = (process.env.ENABLE_BILLING || '').toLowerCase() === 'tru
 // completely neuter the Capacitor SplashScreen plugin so no logo/bitmap
 // flashes at launch. Default = true (splash on) to match legacy behavior.
 const ENABLE_NATIVE_SPLASH = (process.env.ENABLE_NATIVE_SPLASH || 'true').toLowerCase() === 'true'
+const LOVABLE_NDK_VERSION = (process.env.LOVABLE_NDK_VERSION || '28.0.13004108').trim()
 const EXTRA_PLUGINS = (process.env.EXTRA_PLUGINS || '')
   .split(',')
   .map((s) => s.trim())
@@ -268,6 +269,19 @@ function force16KbJniPackaging(source, isKts = false) {
 
   if (/android\s*\{/.test(next)) {
     next = next.replace(/android\s*\{/, (m) => `${m}\n${block}`)
+  }
+  return next
+}
+
+function forceNdk28(source, isKts = false) {
+  if (!LOVABLE_NDK_VERSION) return source
+  const ndkLine = isKts ? `ndkVersion = "${LOVABLE_NDK_VERSION}"` : `ndkVersion "${LOVABLE_NDK_VERSION}"`
+  let next = source
+    .replace(/ndkVersion\s*=\s*["'][^"']+["']/g, ndkLine)
+    .replace(/ndkVersion\s+["'][^"']+["']/g, ndkLine)
+
+  if (!/ndkVersion\s*(?:=\s*)?["']/.test(next) && /android\s*\{/.test(next)) {
+    next = next.replace(/android\s*\{/, (m) => `${m}\n    ${ndkLine}`)
   }
   return next
 }
@@ -665,6 +679,7 @@ export function patchAndroid(root) {
     g = g.replace(/versionCode\s+\d+/, `versionCode ${VERSION_CODE}`)
     g = g.replace(/versionName\s+["'][^"']+["']/, `versionName "${VERSION_NAME}"`)
     g = forceAndroidSdkCompatibility(g)
+    g = forceNdk28(g, isKts)
     // AGP 8 requires `namespace` in every module. Capacitor 6 sets it, but if a
     // user shipped an older template or removed it, Gradle fails with
     //   "Namespace not specified. Specify a namespace in the module's build file."
