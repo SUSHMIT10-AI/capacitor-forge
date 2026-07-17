@@ -842,7 +842,7 @@ allprojects { project ->
     const stripPerm = (perm) => {
       const escaped = perm.replace(/\./g, '\\.')
       m = m.replace(
-        new RegExp(`\n\s*<uses-permission[^>]+android:name=["']${escaped}["'][^>]*(?:/>|>\s*</uses-permission>)`, 'g'),
+        new RegExp(`\\n\\s*<uses-permission[^>]+android:name=["']${escaped}["'][^>]*(?:/>|>\\s*</uses-permission>)`, 'g'),
         '',
       )
     }
