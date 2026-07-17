@@ -31,8 +31,10 @@ const androidDir = path.join(PROJECT_DIR, 'android')
 const appDir = path.join(androidDir, 'app')
 const manifestPath = path.join(appDir, 'src', 'main', 'AndroidManifest.xml')
 const buildGradle = path.join(appDir, 'build.gradle')
+const buildGradleKts = path.join(appDir, 'build.gradle.kts')
 const rootBuildGradle = path.join(androidDir, 'build.gradle')
 const settingsGradle = path.join(androidDir, 'settings.gradle')
+const gradleProps = path.join(androidDir, 'gradle.properties')
 const capConfigJson = path.join(PROJECT_DIR, 'capacitor.config.json')
 const capConfigTs = path.join(PROJECT_DIR, 'capacitor.config.ts')
 const pkgJson = path.join(PROJECT_DIR, 'package.json')
@@ -48,7 +50,7 @@ if (!fs.existsSync(androidDir)) {
   fail('android/ directory missing — run `npx cap add android`')
 } else {
   ok('android project present')
-  if (!fs.existsSync(buildGradle)) fail('android/app/build.gradle missing')
+  if (!fs.existsSync(buildGradle) && !fs.existsSync(buildGradleKts)) fail('android/app/build.gradle missing')
   if (!fs.existsSync(rootBuildGradle)) fail('android/build.gradle missing')
   if (!fs.existsSync(settingsGradle)) fail('android/settings.gradle missing')
   if (!fs.existsSync(manifestPath)) fail('AndroidManifest.xml missing')
@@ -56,7 +58,7 @@ if (!fs.existsSync(androidDir)) {
     fail('android/gradlew missing — generated project is incomplete')
 }
 
-for (const gradleFile of [rootBuildGradle, buildGradle, settingsGradle]) {
+for (const gradleFile of [rootBuildGradle, buildGradle, buildGradleKts, settingsGradle]) {
   if (!fs.existsSync(gradleFile)) continue
   const contents = fs.readFileSync(gradleFile, 'utf8')
   const label = path.relative(PROJECT_DIR, gradleFile)
@@ -72,7 +74,7 @@ for (const gradleFile of [rootBuildGradle, buildGradle, settingsGradle]) {
   if (/Redirect legacy jdk15on to jdk18on|name\.replace\('-jdk15on', '-jdk18on'\)/.test(contents)) {
     fail(`${label} contains stale Bouncy Castle jdk15on→jdk18on rewrite; use jdk15on 1.70 instead`)
   }
-  if (label === path.join('android', 'app', 'build.gradle')) {
+  if (label === path.join('android', 'app', 'build.gradle') || label === path.join('android', 'app', 'build.gradle.kts')) {
     const compileSdkMatches = [...contents.matchAll(/compileSdk(?:Version)?\s*(?:=|\()?\s*(\d+)/g)]
     const targetSdkMatches = [...contents.matchAll(/targetSdk(?:Version)?\s*(?:=|\()?\s*(\d+)/g)]
     if (!compileSdkMatches.length) fail(`${label} is missing compileSdk; Play-ready builds require compileSdk 35`)
@@ -88,6 +90,12 @@ for (const gradleFile of [rootBuildGradle, buildGradle, settingsGradle]) {
     for (const match of minSdkMatches) {
       if (Number(match[1]) < 22) fail(`${label} has minSdk ${match[1]}; Google Play Services now requires minSdk 22`)
     }
+    if (/useLegacyPackaging\s*(?:=|\()?\s*true/.test(contents) || /useLegacyPackaging\s+true/.test(contents)) {
+      fail(`${label} sets jniLibs.useLegacyPackaging=true; Play 16 KB compatibility requires false with AGP 8.5.1+`)
+    }
+    if (!/useLegacyPackaging\s*=\s*false/.test(contents)) {
+      fail(`${label} must set jniLibs.useLegacyPackaging=false so native .so files are 16 KB zip-aligned`)
+    }
   }
   if (label === path.join('android', 'variables.gradle')) {
     for (const [name, expected] of [['compileSdkVersion', 35], ['targetSdkVersion', 35], ['minSdkVersion', 22]]) {
@@ -96,6 +104,15 @@ for (const gradleFile of [rootBuildGradle, buildGradle, settingsGradle]) {
       if (match && Number(match[1]) !== expected) fail(`${label} has ${name} ${match[1]}; expected ${expected}`)
     }
   }
+}
+
+if (fs.existsSync(gradleProps)) {
+  const p = fs.readFileSync(gradleProps, 'utf8')
+  if (!/^android\.bundle\.enableUncompressedNativeLibs=true\s*$/m.test(p)) {
+    fail('android/gradle.properties must contain android.bundle.enableUncompressedNativeLibs=true for AAB PAGE_ALIGNMENT_16K')
+  }
+} else if (fs.existsSync(androidDir)) {
+  fail('android/gradle.properties missing — cannot guarantee 16 KB native library packaging')
 }
 
 if (fs.existsSync(rootBuildGradle)) {
@@ -120,6 +137,9 @@ if (fs.existsSync(manifestPath)) {
   }
   if (ADMOB_APP_ID && !m.includes(ADMOB_APP_ID))
     fail(`AndroidManifest missing AdMob APPLICATION_ID (${ADMOB_APP_ID})`)
+  if (!/android:extractNativeLibs\s*=\s*["']false["']/.test(m)) {
+    fail('AndroidManifest <application> must set android:extractNativeLibs="false" for 16 KB native library loading')
+  }
   const invalidTheme = m.match(/android:theme="(?!(?:@style\/|@android:style\/))[^"]+"/)
   if (invalidTheme) {
     fail(`AndroidManifest has an invalid theme reference: ${invalidTheme[0]}. Theme values must start with @style/.`)
@@ -134,6 +154,15 @@ if (fs.existsSync(pkgJson)) {
   }
   if (ADMOB_APP_ID && !deps['@capacitor-community/admob'])
     fail('AdMob configured but @capacitor-community/admob is not installed')
+  for (const capDep of ['@capacitor/core', '@capacitor/android']) {
+    const version = String(deps[capDep] || '')
+    const match = version.match(/(\d+)\.(\d+)\.(\d+)/)
+    if (match) {
+      const [, maj, min, patch] = match.map(Number)
+      const okVersion = maj > 6 || (maj === 6 && (min > 2 || (min === 2 && patch >= 1)))
+      if (!okVersion) fail(`${capDep} ${version} is too old; use 6.2.1+ so bundled native libraries satisfy Play 16 KB checks`)
+    }
+  }
 }
 
 // Detect that cap sync has actually run — capacitor.plugins.json or similar
