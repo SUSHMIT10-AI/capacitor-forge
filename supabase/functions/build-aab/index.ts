@@ -297,7 +297,7 @@ Deno.serve(async (req) => {
 
     if (!triggerRes.ok) {
       const detail = triggerRes.status === 403
-        ? `Codemagic rejected the request for app ${cmAppId}. The API token can read the app, but Codemagic cannot start this workflow/branch. Confirm the app is connected to the GitHub repo, has branch "main", and includes workflow "${triggerBody.workflowId}" in codemagic.yaml.`
+        ? `Codemagic rejected the request. The builder could not start workflow "${triggerBody.workflowId}" on branch "main". Make sure the connected repository has the latest codemagic.yaml with workflows "build-aab" and "capacitor-aab" on branch main.`
         : JSON.stringify(triggerJson)
       const msg = `Codemagic trigger failed (${triggerRes.status}): ${detail}`
       await supabase
@@ -324,7 +324,13 @@ Deno.serve(async (req) => {
       .update({ codemagic_build_id: codemagicBuildId, error_message: null })
       .eq('id', build_id)
 
-    return json({ success: true, build_id, codemagic_build_id: codemagicBuildId })
+    return json({
+      success: true,
+      build_id,
+      codemagic_build_id: codemagicBuildId,
+      workflow_id: triggerBody.workflowId,
+      branch: triggerBody.branch,
+    })
   } catch (error) {
     console.error('Build trigger error:', error)
     if (buildIdForError) {
