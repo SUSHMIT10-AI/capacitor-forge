@@ -181,7 +181,7 @@ Deno.serve(async (req) => {
 
     if (['failed', 'canceled', 'timeout', 'skipped'].includes(status)) {
       const rootCause = await getFailedBuildDetail(cmBuild, cmToken)
-      const detail = rootCause
+      const detail = explainKnownFailure(rootCause)
         ?? (typeof cmBuild.message === 'string' && cmBuild.message.trim()
           ? cmBuild.message.trim()
           : `Codemagic build ${status}. Check the build logs for details.`)
@@ -268,6 +268,21 @@ function extractRootCause(log: string): string | null {
     .replace(/&lt;/g, '<')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
+}
+
+function explainKnownFailure(detail: string | null): string | null {
+  if (!detail) return null
+  const normalized = detail.toLowerCase()
+  if (
+    normalized.includes('while scanning a simple key') &&
+    (normalized.includes('lovable_16kb_jnilibs') || normalized.includes('packaging {') || normalized.includes('packagingoptions {'))
+  ) {
+    return [
+      'Codemagic is still using an older malformed codemagic.yaml from the connected repository. The current builder file is fixed, but the repository branch used by Codemagic must contain the latest codemagic.yaml before starting another build.',
+      detail,
+    ].join('\n\n')
+  }
+  return detail
 }
 
 function getAabTargetSdk(aab: Uint8Array): string | null {

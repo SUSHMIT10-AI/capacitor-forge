@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
       const r = await fetch(sub.logUrl, { headers: { 'x-auth-token': token } })
       const txt = await r.text()
       logTail = txt.length > 60000 ? txt.slice(-60000) : txt
-      logRootCause = extractRootCause(txt)
+      logRootCause = explainKnownFailure(extractRootCause(txt))
     }
 
     const actionSummary = steps.map((s: any) => ({
@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
       if (!actionSub?.logUrl) continue
       const r = await fetch(actionSub.logUrl, { headers: { 'x-auth-token': token } })
       const txt = await r.text()
-      const rootCause = extractRootCause(txt)
+      const rootCause = explainKnownFailure(extractRootCause(txt))
       interestingLogs[name || `action_${Object.keys(interestingLogs).length + 1}`] = rootCause ?? (txt.length > 60000 ? txt.slice(-60000) : txt)
     }
 
