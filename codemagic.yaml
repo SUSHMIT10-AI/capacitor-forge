@@ -128,13 +128,48 @@ workflows:
         script: |
           set -euo pipefail
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" >/dev/null || true
+          NDK_PACKAGE="$("$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --list 2>/dev/null | awk -F'|' '/ndk;2[8-9]\./ {gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1}' | sort -V | tail -n 1 || true)"
+          if [ -z "$NDK_PACKAGE" ]; then NDK_PACKAGE="ndk;28.0.13004108"; fi
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "$NDK_PACKAGE" >/dev/null || true
+          NDK_VERSION="${NDK_PACKAGE#ndk;}"
+          if [ -d "$ANDROID_SDK_ROOT/ndk/$NDK_VERSION" ]; then
+            echo "LOVABLE_NDK_VERSION=$NDK_VERSION" >> "$CM_ENV"
+            echo "✅ Android NDK $NDK_VERSION available; native source builds will use 16 KB ELF alignment defaults."
+          else
+            echo "⚠️  Could not install $NDK_PACKAGE; final artifact verification will still catch any 4 KB native libraries."
+          fi
           GRADLE_FILE="$CM_BUILD_DIR/android-template/app/build.gradle"
           perl -0pi -e 's/compileSdk(?:Version)?\s+\d+/compileSdk 35/g; s/targetSdk(?:Version)?\s+\d+/targetSdk 35/g; s/minSdk(?:Version)?\s+\d+/minSdk 22/g' "$GRADLE_FILE"
+          echo "android.bundle.enableUncompressedNativeLibs=true" >> "$CM_BUILD_DIR/android-template/gradle.properties"
+          python3 - "$GRADLE_FILE" "${LOVABLE_NDK_VERSION:-}" <<'PY'
+          import re, sys
+          path, ndk = sys.argv[1], sys.argv[2]
+          text = open(path, encoding='utf-8').read()
+          text = re.sub(r'useLegacyPackaging\s*(?:=|\()?\s*true\s*\)?', 'useLegacyPackaging = false', text)
+          text = re.sub(r'useLegacyPackaging\s+false', 'useLegacyPackaging = false', text)
+          if 'useLegacyPackaging = false' not in text:
+              block = '''
+              // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 35+)
+              packagingOptions {
+                  jniLibs {
+                      useLegacyPackaging = false
+                  }
+              }
+          '''
+              text = re.sub(r'android\s*\{', 'android {\n' + block, text, count=1)
+          if ndk and 'ndkVersion' not in text:
+              text = re.sub(r'android\s*\{', f'android {{\n    ndkVersion "{ndk}"', text, count=1)
+          open(path, 'w', encoding='utf-8').write(text)
+          PY
+          perl -0pi -e 's/android:extractNativeLibs="[^"]*"/android:extractNativeLibs="false"/g; if (!/android:extractNativeLibs=/) { s/<application\b([^>]*)>/<application$1 android:extractNativeLibs="false">/s }' "$CM_BUILD_DIR/android-template/app/src/main/AndroidManifest.xml"
           grep -Eq 'compileSdk\s+35' "$GRADLE_FILE"
           grep -Eq 'targetSdk\s+35' "$GRADLE_FILE"
           grep -Eq 'minSdk\s+22' "$GRADLE_FILE"
+          grep -Eq 'useLegacyPackaging\s*=\s*false' "$GRADLE_FILE"
+          grep -Eq '^android\.bundle\.enableUncompressedNativeLibs=true' "$CM_BUILD_DIR/android-template/gradle.properties"
+          grep -Eq 'android:extractNativeLibs="false"' "$CM_BUILD_DIR/android-template/app/src/main/AndroidManifest.xml"
           sed -n '/android {/,/defaultConfig {/p; /defaultConfig {/,/}/p' "$GRADLE_FILE" | grep -E 'compileSdk|targetSdk|minSdk' || true
-          echo "✅ Android build is locked to compileSdk 35, targetSdk 35, and minSdk 22."
+          echo "✅ Android build is locked to compileSdk 35, targetSdk 35, minSdk 22, and 16 KB native-library packaging."
       - name: Normalize Gradle signing DSL
         script: |
           GRADLE_FILE="$CM_BUILD_DIR/android-template/app/build.gradle"
@@ -731,6 +766,16 @@ workflows:
           if [ -n "$AAB_FILE" ]; then FOUND=1; check_ad_id "$AAB_FILE" "AAB"; fi
           if [ -n "$APK_FILE" ]; then FOUND=1; check_ad_id "$APK_FILE" "APK"; fi
           [ "$FOUND" = "1" ] || { echo "❌ No APK/AAB artifact found to inspect."; exit 1; }
+      - name: Verify 16 KB page-size compatibility in release artifact
+        working_directory: android-template
+        script: |
+          set -euo pipefail
+          mapfile -t ARTIFACTS < <(find app/build/outputs -type f \( -name '*.aab' -o -name '*.apk' \) | sort)
+          if [ "${#ARTIFACTS[@]}" -eq 0 ]; then
+            echo "❌ No APK/AAB artifact found to inspect for 16 KB compatibility."
+            exit 1
+          fi
+          python3 "$CM_BUILD_DIR/capacitor-scripts/verify-android-16kb.py" "${ARTIFACTS[@]}"
       - name: Verify APK signature (release, not debug)
         working_directory: android-template
         script: |
