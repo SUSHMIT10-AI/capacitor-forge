@@ -132,12 +132,12 @@ workflows:
           if [ -z "$NDK_PACKAGE" ]; then NDK_PACKAGE="ndk;28.0.13004108"; fi
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "$NDK_PACKAGE" >/dev/null || true
           NDK_VERSION="${NDK_PACKAGE#ndk;}"
-          if [ -d "$ANDROID_SDK_ROOT/ndk/$NDK_VERSION" ]; then
-            echo "LOVABLE_NDK_VERSION=$NDK_VERSION" >> "$CM_ENV"
-            echo "✅ Android NDK $NDK_VERSION available; native source builds will use 16 KB ELF alignment defaults."
-          else
-            echo "⚠️  Could not install $NDK_PACKAGE; final artifact verification will still catch any 4 KB native libraries."
+          if [ ! -d "$ANDROID_SDK_ROOT/ndk/$NDK_VERSION" ]; then
+            echo "❌ Android NDK r28+ is required for 16 KB ELF alignment but $NDK_PACKAGE was not installed."
+            exit 1
           fi
+          echo "LOVABLE_NDK_VERSION=$NDK_VERSION" >> "$CM_ENV"
+          echo "✅ Android NDK $NDK_VERSION available; native source builds will use 16 KB ELF alignment defaults."
           GRADLE_FILE="$CM_BUILD_DIR/android-template/app/build.gradle"
           perl -0pi -e 's/compileSdk(?:Version)?\s+\d+/compileSdk 35/g; s/targetSdk(?:Version)?\s+\d+/targetSdk 35/g; s/minSdk(?:Version)?\s+\d+/minSdk 22/g' "$GRADLE_FILE"
           echo "android.bundle.enableUncompressedNativeLibs=true" >> "$CM_BUILD_DIR/android-template/gradle.properties"
@@ -1146,8 +1146,16 @@ workflows:
                       text = re.sub(r'defaultConfig\s*\{', 'defaultConfig {\n        minSdk 22', text, count=1)
                   text = re.sub(r'useLegacyPackaging\s*(?:=|\()?\s*true\s*\)?', 'useLegacyPackaging = false', text)
                   text = re.sub(r'useLegacyPackaging\s+false', 'useLegacyPackaging = false', text)
+                  is_kts = path.name.endswith('.kts')
                   if 'useLegacyPackaging = false' not in text:
                       block = '''
+    // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 35+)
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
+''' if is_kts else '''
     // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 35+)
     packagingOptions {
         jniLibs {
@@ -1157,10 +1165,11 @@ workflows:
 '''
                       text = re.sub(r'android\s*\{', 'android {\n' + block, text, count=1)
                   ndk = os.environ.get('LOVABLE_NDK_VERSION', '28.0.13004108')
-                  text = re.sub(r'ndkVersion\s*=\s*["\'][^"\']+["\']', f'ndkVersion "{ndk}"', text)
-                  text = re.sub(r'ndkVersion\s+["\'][^"\']+["\']', f'ndkVersion "{ndk}"', text)
+                  ndk_line = f'ndkVersion = "{ndk}"' if is_kts else f'ndkVersion "{ndk}"'
+                  text = re.sub(r'ndkVersion\s*=\s*["\'][^"\']+["\']', ndk_line, text)
+                  text = re.sub(r'ndkVersion\s+["\'][^"\']+["\']', ndk_line, text)
                   if 'ndkVersion' not in text:
-                      text = re.sub(r'android\s*\{', f'android {{\n    ndkVersion "{ndk}"', text, count=1)
+                      text = re.sub(r'android\s*\{', 'android {\n    ' + ndk_line, text, count=1)
               path.write_text(text, encoding='utf-8')
           if gradle_props.exists():
               props = gradle_props.read_text(encoding='utf-8')
@@ -1696,8 +1705,16 @@ workflows:
                       text = re.sub(r'defaultConfig\s*\{', 'defaultConfig {\n        minSdk 22', text, count=1)
                   text = re.sub(r'useLegacyPackaging\s*(?:=|\()?\s*true\s*\)?', 'useLegacyPackaging = false', text)
                   text = re.sub(r'useLegacyPackaging\s+false', 'useLegacyPackaging = false', text)
+                  is_kts = path.name.endswith('.kts')
                   if 'useLegacyPackaging = false' not in text:
                       block = '''
+    // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 35+)
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
+''' if is_kts else '''
     // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 35+)
     packagingOptions {
         jniLibs {
@@ -1707,10 +1724,11 @@ workflows:
 '''
                       text = re.sub(r'android\s*\{', 'android {\n' + block, text, count=1)
                   ndk = os.environ.get('LOVABLE_NDK_VERSION', '28.0.13004108')
-                  text = re.sub(r'ndkVersion\s*=\s*["\'][^"\']+["\']', f'ndkVersion "{ndk}"', text)
-                  text = re.sub(r'ndkVersion\s+["\'][^"\']+["\']', f'ndkVersion "{ndk}"', text)
+                  ndk_line = f'ndkVersion = "{ndk}"' if is_kts else f'ndkVersion "{ndk}"'
+                  text = re.sub(r'ndkVersion\s*=\s*["\'][^"\']+["\']', ndk_line, text)
+                  text = re.sub(r'ndkVersion\s+["\'][^"\']+["\']', ndk_line, text)
                   if 'ndkVersion' not in text:
-                      text = re.sub(r'android\s*\{', f'android {{\n    ndkVersion "{ndk}"', text, count=1)
+                      text = re.sub(r'android\s*\{', 'android {\n    ' + ndk_line, text, count=1)
               path.write_text(text, encoding='utf-8')
 
           props = gradle_props.read_text(encoding='utf-8') if gradle_props.exists() else ''
