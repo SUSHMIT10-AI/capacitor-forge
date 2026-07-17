@@ -1654,7 +1654,7 @@ workflows:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import re, sys
+          import os, re, sys
 
           app = Path('app/build.gradle') if Path('app/build.gradle').exists() else Path('app/build.gradle.kts')
           gradle_props = Path('gradle.properties')
