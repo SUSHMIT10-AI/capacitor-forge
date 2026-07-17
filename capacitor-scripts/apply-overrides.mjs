@@ -597,13 +597,16 @@ export function patchAndroid(root) {
     }
   }
 
-  /* gradle.properties — AndroidX, Jetifier, MultiDex */
+  /* gradle.properties — AndroidX, Jetifier, MultiDex, 16 KB page-size compat */
   const gradleProps = path.join(root, 'gradle.properties')
   const requiredProps = {
     'android.useAndroidX': 'true',
     'android.enableJetifier': 'true',
     'org.gradle.jvmargs': '-Xmx2048m -Dfile.encoding=UTF-8',
     'android.nonTransitiveRClass': 'true',
+    // 16 KB page-size compatibility (Play requirement for API 35+).
+    // Keeps .so files uncompressed & 16 KB-aligned inside the AAB.
+    'android.bundle.enableUncompressedNativeLibs': 'true',
   }
   let props = fs.existsSync(gradleProps) ? fs.readFileSync(gradleProps, 'utf8') : ''
   for (const [k, v] of Object.entries(requiredProps)) {
@@ -612,7 +615,8 @@ export function patchAndroid(root) {
     else props += `${props.endsWith('\n') || props === '' ? '' : '\n'}${k}=${v}\n`
   }
   fs.writeFileSync(gradleProps, props)
-  log('Ensured AndroidX / Jetifier / nonTransitiveRClass in gradle.properties')
+  log('Ensured AndroidX / Jetifier / nonTransitiveRClass / 16KB-native-libs in gradle.properties')
+
 
   /* app/build.gradle — applicationId/version, MultiDex, Google Services, Kotlin */
   const buildGradle = path.join(root, 'app', 'build.gradle')
