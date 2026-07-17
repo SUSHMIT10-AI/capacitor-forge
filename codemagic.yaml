@@ -1148,21 +1148,23 @@ workflows:
                   text = re.sub(r'useLegacyPackaging\s+false', 'useLegacyPackaging = false', text)
                   is_kts = path.name.endswith('.kts')
                   if 'useLegacyPackaging = false' not in text:
-                      block = '''
-    // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 35+)
-    packaging {
-        jniLibs {
-            useLegacyPackaging = false
-        }
-    }
-''' if is_kts else '''
-    // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 35+)
-    packagingOptions {
-        jniLibs {
-            useLegacyPackaging = false
-        }
-    }
-'''
+                      block = (
+                          '\n'
+                          '    // LOVABLE_16KB_JNILIBS - 16 KB page-size compatibility for Play (API 35+)\n'
+                          '    packaging {\n'
+                          '        jniLibs {\n'
+                          '            useLegacyPackaging = false\n'
+                          '        }\n'
+                          '    }\n'
+                      ) if is_kts else (
+                          '\n'
+                          '    // LOVABLE_16KB_JNILIBS - 16 KB page-size compatibility for Play (API 35+)\n'
+                          '    packagingOptions {\n'
+                          '        jniLibs {\n'
+                          '            useLegacyPackaging = false\n'
+                          '        }\n'
+                          '    }\n'
+                      )
                       text = re.sub(r'android\s*\{', 'android {\n' + block, text, count=1)
                   ndk = os.environ.get('LOVABLE_NDK_VERSION', '28.0.13004108')
                   ndk_line = f'ndkVersion = "{ndk}"' if is_kts else f'ndkVersion "{ndk}"'
@@ -1707,21 +1709,23 @@ workflows:
                   text = re.sub(r'useLegacyPackaging\s+false', 'useLegacyPackaging = false', text)
                   is_kts = path.name.endswith('.kts')
                   if 'useLegacyPackaging = false' not in text:
-                      block = '''
-    // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 35+)
-    packaging {
-        jniLibs {
-            useLegacyPackaging = false
-        }
-    }
-''' if is_kts else '''
-    // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 35+)
-    packagingOptions {
-        jniLibs {
-            useLegacyPackaging = false
-        }
-    }
-'''
+                      block = (
+                          '\n'
+                          '    // LOVABLE_16KB_JNILIBS - 16 KB page-size compatibility for Play (API 35+)\n'
+                          '    packaging {\n'
+                          '        jniLibs {\n'
+                          '            useLegacyPackaging = false\n'
+                          '        }\n'
+                          '    }\n'
+                      ) if is_kts else (
+                          '\n'
+                          '    // LOVABLE_16KB_JNILIBS - 16 KB page-size compatibility for Play (API 35+)\n'
+                          '    packagingOptions {\n'
+                          '        jniLibs {\n'
+                          '            useLegacyPackaging = false\n'
+                          '        }\n'
+                          '    }\n'
+                      )
                       text = re.sub(r'android\s*\{', 'android {\n' + block, text, count=1)
                   ndk = os.environ.get('LOVABLE_NDK_VERSION', '28.0.13004108')
                   ndk_line = f'ndkVersion = "{ndk}"' if is_kts else f'ndkVersion "{ndk}"'
