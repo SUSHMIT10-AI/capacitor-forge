@@ -641,6 +641,23 @@ export function patchAndroid(root) {
     if (!/androidx\.multidex:multidex/.test(g)) {
       g = g.replace(/dependencies\s*\{/, (m) => `${m}\n    implementation 'androidx.multidex:multidex:2.0.1'`)
     }
+    // 16 KB page-size compatibility — required by Google Play from Nov 2025 for
+    // apps targeting API 35+. Keep .so files uncompressed & page-aligned so
+    // they can be mmap'd directly from the APK on 16 KB-page devices.
+    if (!/LOVABLE_16KB_JNILIBS/.test(g)) {
+      const block = `
+    // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 35+)
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
+`
+      if (/android\s*\{/.test(g)) {
+        g = g.replace(/android\s*\{/, (m) => `${m}\n${block}`)
+      }
+    }
+
     // AdMob SDK — Capacitor AdMob plugin already pulls play-services-ads, but be defensive
     if (ADMOB_APP_ID && !/play-services-ads/.test(g)) {
       g = g.replace(
