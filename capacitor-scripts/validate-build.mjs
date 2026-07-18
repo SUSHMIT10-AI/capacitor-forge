@@ -34,6 +34,7 @@ const buildGradle = path.join(appDir, 'build.gradle')
 const buildGradleKts = path.join(appDir, 'build.gradle.kts')
 const rootBuildGradle = path.join(androidDir, 'build.gradle')
 const settingsGradle = path.join(androidDir, 'settings.gradle')
+const variablesGradle = path.join(androidDir, 'variables.gradle')
 const gradleProps = path.join(androidDir, 'gradle.properties')
 const capConfigJson = path.join(PROJECT_DIR, 'capacitor.config.json')
 const capConfigTs = path.join(PROJECT_DIR, 'capacitor.config.ts')
@@ -58,7 +59,7 @@ if (!fs.existsSync(androidDir)) {
     fail('android/gradlew missing — generated project is incomplete')
 }
 
-for (const gradleFile of [rootBuildGradle, buildGradle, buildGradleKts, settingsGradle]) {
+for (const gradleFile of [rootBuildGradle, buildGradle, buildGradleKts, settingsGradle, variablesGradle]) {
   if (!fs.existsSync(gradleFile)) continue
   const contents = fs.readFileSync(gradleFile, 'utf8')
   const label = path.relative(PROJECT_DIR, gradleFile)
@@ -96,6 +97,9 @@ for (const gradleFile of [rootBuildGradle, buildGradle, buildGradleKts, settings
     if (!/useLegacyPackaging\s*=\s*false/.test(contents)) {
       fail(`${label} must set jniLibs.useLegacyPackaging=false so native .so files are 16 KB zip-aligned`)
     }
+    if (!/ndkVersion\s*(?:=\s*)?['"](?:28|29)\./.test(contents) && !/ndkVersion\s*(?:=\s*)?rootProject\.ext\.ndkVersion/.test(contents)) {
+      fail(`${label} must set ndkVersion to Android NDK r28+ so native source builds produce 16 KB-aligned ELF files`)
+    }
   }
   if (label === path.join('android', 'variables.gradle')) {
     for (const [name, expected] of [['compileSdkVersion', 35], ['targetSdkVersion', 35], ['minSdkVersion', 22]]) {
@@ -103,6 +107,9 @@ for (const gradleFile of [rootBuildGradle, buildGradle, buildGradleKts, settings
       const match = contents.match(re)
       if (match && Number(match[1]) !== expected) fail(`${label} has ${name} ${match[1]}; expected ${expected}`)
     }
+    const ndkMatch = contents.match(/ndkVersion\s*=\s*['"]([^'"]+)['"]/) || contents.match(/ndkVersion\s+['"]([^'"]+)['"]/) 
+    if (!ndkMatch) fail(`${label} is missing ndkVersion; native source builds may use an older NDK and fail Play 16 KB checks`)
+    else if (!/^(28|29)\./.test(ndkMatch[1])) fail(`${label} has ndkVersion ${ndkMatch[1]}; Play 16 KB compatibility requires NDK r28+`)
   }
 }
 

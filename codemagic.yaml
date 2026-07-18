@@ -147,6 +147,12 @@ workflows:
           text = open(path, encoding='utf-8').read()
           text = re.sub(r'useLegacyPackaging\s*(?:=|\()?\s*true\s*\)?', 'useLegacyPackaging = false', text)
           text = re.sub(r'useLegacyPackaging\s+false', 'useLegacyPackaging = false', text)
+          text = re.sub(r'ndkVersion\s*=\s*["\'][^"\']+["\']', f'ndkVersion "{ndk}"', text)
+          text = re.sub(r'ndkVersion\s+["\'][^"\']+["\']', f'ndkVersion "{ndk}"', text)
+          text = re.sub(r'ndkVersion\s*=\s*rootProject\.ext\.ndkVersion', f'ndkVersion "{ndk}"', text)
+          text = re.sub(r'ndkVersion\s+rootProject\.ext\.ndkVersion', f'ndkVersion "{ndk}"', text)
+          text = re.sub(r'ndkVersion\s*=\s*project\.ext\.ndkVersion', f'ndkVersion "{ndk}"', text)
+          text = re.sub(r'ndkVersion\s+project\.ext\.ndkVersion', f'ndkVersion "{ndk}"', text)
           if 'useLegacyPackaging = false' not in text:
               block = '''
               // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 35+)

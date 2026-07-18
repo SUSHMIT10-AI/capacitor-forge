@@ -138,6 +138,7 @@ println "📦 App version: name=${resolvedVName} code=${resolvedVCode} (prop='${
 android {
     namespace 'com.aabforge.app'
     compileSdk 35
+    ndkVersion '28.0.13004108'
 
     defaultConfig {
         applicationId resolvedPackage
