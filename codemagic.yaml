@@ -1171,9 +1171,21 @@ workflows:
                   ndk_line = f'ndkVersion = "{ndk}"' if is_kts else f'ndkVersion "{ndk}"'
                   text = re.sub(r'ndkVersion\s*=\s*["\'][^"\']+["\']', ndk_line, text)
                   text = re.sub(r'ndkVersion\s+["\'][^"\']+["\']', ndk_line, text)
+                  text = re.sub(r'ndkVersion\s*=\s*rootProject\.ext\.ndkVersion', ndk_line, text)
+                  text = re.sub(r'ndkVersion\s+rootProject\.ext\.ndkVersion', ndk_line, text)
+                  text = re.sub(r'ndkVersion\s*=\s*project\.ext\.ndkVersion', ndk_line, text)
+                  text = re.sub(r'ndkVersion\s+project\.ext\.ndkVersion', ndk_line, text)
                   if 'ndkVersion' not in text:
                       text = re.sub(r'android\s*\{', 'android {\n    ' + ndk_line, text, count=1)
               path.write_text(text, encoding='utf-8')
+          if variables.exists():
+              vars_text = variables.read_text(encoding='utf-8')
+              ndk = os.environ.get('LOVABLE_NDK_VERSION', '28.0.13004108')
+              if re.search(r'ndkVersion\s*=', vars_text):
+                  vars_text = re.sub(r'ndkVersion\s*=\s*["\'][^"\']+["\']', f"ndkVersion = '{ndk}'", vars_text)
+              else:
+                  vars_text += ('\n' if vars_text and not vars_text.endswith('\n') else '') + f"ndkVersion = '{ndk}'\n"
+              variables.write_text(vars_text, encoding='utf-8')
           if gradle_props.exists():
               props = gradle_props.read_text(encoding='utf-8')
           else:
@@ -1732,9 +1744,22 @@ workflows:
                   ndk_line = f'ndkVersion = "{ndk}"' if is_kts else f'ndkVersion "{ndk}"'
                   text = re.sub(r'ndkVersion\s*=\s*["\'][^"\']+["\']', ndk_line, text)
                   text = re.sub(r'ndkVersion\s+["\'][^"\']+["\']', ndk_line, text)
+                  text = re.sub(r'ndkVersion\s*=\s*rootProject\.ext\.ndkVersion', ndk_line, text)
+                  text = re.sub(r'ndkVersion\s+rootProject\.ext\.ndkVersion', ndk_line, text)
+                  text = re.sub(r'ndkVersion\s*=\s*project\.ext\.ndkVersion', ndk_line, text)
+                  text = re.sub(r'ndkVersion\s+project\.ext\.ndkVersion', ndk_line, text)
                   if 'ndkVersion' not in text:
                       text = re.sub(r'android\s*\{', 'android {\n    ' + ndk_line, text, count=1)
               path.write_text(text, encoding='utf-8')
+
+          if variables.exists():
+              vars_text = variables.read_text(encoding='utf-8')
+              ndk = os.environ.get('LOVABLE_NDK_VERSION', '28.0.13004108')
+              if re.search(r'ndkVersion\s*=', vars_text):
+                  vars_text = re.sub(r'ndkVersion\s*=\s*["\'][^"\']+["\']', f"ndkVersion = '{ndk}'", vars_text)
+              else:
+                  vars_text += ('\n' if vars_text and not vars_text.endswith('\n') else '') + f"ndkVersion = '{ndk}'\n"
+              variables.write_text(vars_text, encoding='utf-8')
 
           props = gradle_props.read_text(encoding='utf-8') if gradle_props.exists() else ''
           if re.search(r'^android\.bundle\.enableUncompressedNativeLibs=', props, re.M):

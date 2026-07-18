@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.request
 import zipfile
 from pathlib import Path
 
@@ -60,10 +61,8 @@ def find_readelf() -> str | None:
 
 def ensure_bundletool() -> Path:
     if not BUNDLETOOL_JAR.exists() or BUNDLETOOL_JAR.stat().st_size == 0:
-        raise SystemExit(
-            f"❌ bundletool is required at {BUNDLETOOL_JAR}. "
-            f"Download it before verification from {BUNDLETOOL_URL}"
-        )
+        print(f"Downloading bundletool: {BUNDLETOOL_URL}")
+        urllib.request.urlretrieve(BUNDLETOOL_URL, BUNDLETOOL_JAR)
     return BUNDLETOOL_JAR
 
 
@@ -239,6 +238,7 @@ def main() -> None:
         if suffix == ".aab":
             if has_native:
                 verify_aab_page_alignment(artifact)
+                verify_aab_generated_apks(artifact)
             else:
                 print(f"✅ {artifact.name}: no native .so files found; AAB page-alignment config is not required.")
         elif suffix == ".apk":
