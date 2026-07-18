@@ -770,12 +770,13 @@ workflows:
         working_directory: android-template
         script: |
           set -euo pipefail
-          mapfile -t ARTIFACTS < <(find app/build/outputs -type f \( -name '*.aab' -o -name '*.apk' \) | sort)
-          if [ "${#ARTIFACTS[@]}" -eq 0 ]; then
+          ARTIFACT_LIST="/tmp/lovable-16kb-artifacts.txt"
+          find app/build/outputs -type f \( -name '*.aab' -o -name '*.apk' \) | sort > "$ARTIFACT_LIST"
+          if [ ! -s "$ARTIFACT_LIST" ]; then
             echo "❌ No APK/AAB artifact found to inspect for 16 KB compatibility."
             exit 1
           fi
-          python3 "$CM_BUILD_DIR/capacitor-scripts/verify-android-16kb.py" "${ARTIFACTS[@]}"
+          xargs python3 "$CM_BUILD_DIR/capacitor-scripts/verify-android-16kb.py" < "$ARTIFACT_LIST"
       - name: Verify APK signature (release, not debug)
         working_directory: android-template
         script: |
@@ -1813,12 +1814,13 @@ workflows:
         working_directory: user-project/android
         script: |
           set -euo pipefail
-          mapfile -t ARTIFACTS < <(find app/build/outputs -type f \( -name '*.aab' -o -name '*.apk' \) | sort)
-          if [ "${#ARTIFACTS[@]}" -eq 0 ]; then
+          ARTIFACT_LIST="/tmp/lovable-16kb-capacitor-artifacts.txt"
+          find app/build/outputs -type f \( -name '*.aab' -o -name '*.apk' \) | sort > "$ARTIFACT_LIST"
+          if [ ! -s "$ARTIFACT_LIST" ]; then
             echo "❌ No APK/AAB artifact found to inspect for 16 KB compatibility."
             exit 1
           fi
-          python3 "$CM_BUILD_DIR/capacitor-scripts/verify-android-16kb.py" "${ARTIFACTS[@]}"
+          xargs python3 "$CM_BUILD_DIR/capacitor-scripts/verify-android-16kb.py" < "$ARTIFACT_LIST"
     artifacts:
       - user-project/android/app/build/outputs/**/*.aab
       - user-project/android/app/build/outputs/**/*.apk
