@@ -26,6 +26,7 @@ from pathlib import Path
 BUNDLETOOL_URL = "https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar"
 BUNDLETOOL_JAR = Path("/tmp/bundletool-all-1.17.2.jar")
 MIN_ALIGN = 16 * 1024
+ANDROID_JAR = Path(os.environ.get("ANDROID_JAR", "")) if os.environ.get("ANDROID_JAR") else None
 
 
 def run(args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -157,6 +158,61 @@ def verify_aab_page_alignment(aab: Path) -> None:
     print(f"✅ {aab.name}: AAB requests PAGE_ALIGNMENT_16K.")
 
 
+def find_android_jar() -> Path | None:
+    if ANDROID_JAR and ANDROID_JAR.exists():
+        return ANDROID_JAR
+    sdk = os.environ.get("ANDROID_SDK_ROOT") or os.environ.get("ANDROID_HOME")
+    if not sdk:
+        return None
+    candidates = sorted(glob.glob(str(Path(sdk) / "platforms" / "android-*" / "android.jar")), key=version_key)
+    return Path(candidates[-1]) if candidates else None
+
+
+def verify_aab_generated_apks(aab: Path) -> None:
+    """Build universal APKs from the AAB and run the same checks Play applies.
+
+    `bundletool dump config` verifies the bundle requests 16 KB alignment, but
+    Play Console ultimately generates APKs from the bundle. This catches gaps
+    where the AAB metadata looks right while the produced APK still fails
+    zipalign -P 16 or contains bad .so files.
+    """
+    jar = ensure_bundletool()
+    android_jar = find_android_jar()
+    if not android_jar:
+        raise SystemExit("❌ android.jar not found; install Android SDK platforms before AAB APK-set verification.")
+
+    with tempfile.TemporaryDirectory(prefix="lovable-16kb-apks-") as tmp:
+        tmpdir = Path(tmp)
+        apks = tmpdir / "generated.apks"
+        extract_dir = tmpdir / "extracted"
+        proc = run(
+            [
+                "java",
+                "-jar",
+                str(jar),
+                "build-apks",
+                f"--bundle={aab}",
+                f"--output={apks}",
+                "--mode=universal",
+                f"--android-jar={android_jar}",
+            ],
+            check=False,
+        )
+        print(proc.stdout)
+        if proc.returncode != 0:
+            raise SystemExit(f"❌ bundletool could not generate APKs from {aab.name} for 16 KB verification.")
+
+        with zipfile.ZipFile(apks) as zf:
+            zf.extractall(extract_dir)
+        apk_files = sorted(extract_dir.rglob("*.apk"))
+        if not apk_files:
+            raise SystemExit(f"❌ bundletool generated no APKs from {aab.name}; cannot verify Play output.")
+        print(f"Generated {len(apk_files)} APK(s) from {aab.name}; verifying Play-style outputs.")
+        for apk in apk_files:
+            verify_apk_zip_alignment(apk)
+            verify_so_elf_alignment(apk)
+
+
 def verify_apk_zip_alignment(apk: Path) -> None:
     zipalign = find_build_tool("zipalign")
     if not zipalign:
@@ -182,6 +238,7 @@ def main() -> None:
         if suffix == ".aab":
             if has_native:
                 verify_aab_page_alignment(artifact)
+                verify_aab_generated_apks(artifact)
             else:
                 print(f"✅ {artifact.name}: no native .so files found; AAB page-alignment config is not required.")
         elif suffix == ".apk":
