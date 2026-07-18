@@ -279,6 +279,10 @@ function forceNdk28(source, isKts = false) {
   let next = source
     .replace(/ndkVersion\s*=\s*["'][^"']+["']/g, ndkLine)
     .replace(/ndkVersion\s+["'][^"']+["']/g, ndkLine)
+    .replace(/ndkVersion\s*=\s*rootProject\.ext\.ndkVersion/g, ndkLine)
+    .replace(/ndkVersion\s+rootProject\.ext\.ndkVersion/g, ndkLine)
+    .replace(/ndkVersion\s*=\s*project\.ext\.ndkVersion/g, ndkLine)
+    .replace(/ndkVersion\s+project\.ext\.ndkVersion/g, ndkLine)
 
   if (!/ndkVersion\s*(?:=\s*)?["']/.test(next) && /android\s*\{/.test(next)) {
     next = next.replace(/android\s*\{/, (m) => `${m}\n    ${ndkLine}`)
@@ -729,10 +733,15 @@ export function patchAndroid(root) {
   const variablesGradle = path.join(root, 'variables.gradle')
   if (fs.existsSync(variablesGradle)) {
     const vars = fs.readFileSync(variablesGradle, 'utf8')
-    const next = forceAndroidSdkCompatibility(vars)
+    let next = forceAndroidSdkCompatibility(vars)
+    if (/ndkVersion\s*=/.test(next)) {
+      next = next.replace(/ndkVersion\s*=\s*["'][^"']+["']/g, `ndkVersion = '${LOVABLE_NDK_VERSION}'`)
+    } else {
+      next += `${next.endsWith('\n') || next === '' ? '' : '\n'}ndkVersion = '${LOVABLE_NDK_VERSION}'\n`
+    }
     if (next !== vars) {
       fs.writeFileSync(variablesGradle, next)
-      log('Locked android/variables.gradle to compileSdk 35, targetSdk 35, and minSdk 22')
+      log('Locked android/variables.gradle to compileSdk 35, targetSdk 35, minSdk 22, and NDK r28+')
     }
   }
 
