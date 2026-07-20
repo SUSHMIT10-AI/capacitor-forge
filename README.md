@@ -40,4 +40,4 @@ If Play Console keeps rejecting the AAB after a successful build, it is almost a
 
 ## Latest build fix
 
-The `mapfile` bash builtin was unavailable in the Codemagic shell, causing the 16 KB verification step to exit `127`. Replaced with a POSIX-safe `find`/`xargs` collector. NDK r28 is forced in every Gradle path and the verifier now also runs Play-style APK-set checks (`zipalign -P 16` + `llvm-readelf`) on APKs generated from the AAB.
+The latest failed build stopped in **Force Android SDK compatibility** because the workflow referenced `variables` before defining `android/variables.gradle`. That step now defines the path first, then enforces `compileSdk 35`, `targetSdk 35`, `minSdk 22`, NDK r28+, `android.bundle.enableUncompressedNativeLibs=true`, `jniLibs.useLegacyPackaging=false`, and `android:extractNativeLibs="false"` before Gradle runs. The local workflow check verifies this script and the YAML parses successfully.

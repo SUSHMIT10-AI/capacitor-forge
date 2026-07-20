@@ -1109,7 +1109,8 @@ workflows:
 
           gradle_props = Path('android/gradle.properties')
           manifest = Path('android/app/src/main/AndroidManifest.xml')
-          files = [Path('android/app/build.gradle'), Path('android/app/build.gradle.kts'), Path('android/variables.gradle')]
+          variables = Path('android/variables.gradle')
+          files = [Path('android/app/build.gradle'), Path('android/app/build.gradle.kts'), variables]
           for path in files:
               if not path.exists():
                   continue
