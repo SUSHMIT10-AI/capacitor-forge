@@ -254,6 +254,8 @@ function extractRootCause(log: string): string | null {
     'Duplicate class',
     'Could not resolve all files',
     'Could not find',
+    'Traceback (most recent call last):',
+    'NameError:',
   ]
   const first = markers
     .map((marker) => ({ marker, index: log.indexOf(marker) }))
@@ -279,6 +281,12 @@ function explainKnownFailure(detail: string | null): string | null {
   ) {
     return [
       'Codemagic is still using an older malformed codemagic.yaml from the connected repository. The current builder file is fixed, but the repository branch used by Codemagic must contain the latest codemagic.yaml before starting another build.',
+      detail,
+    ].join('\n\n')
+  }
+  if (normalized.includes("nameerror: name 'variables' is not defined")) {
+    return [
+      'Codemagic is still using an older codemagic.yaml where the Force Android SDK compatibility step referenced variables before defining it. The builder file now defines android/variables.gradle before use; wait for the connected repository to sync the latest codemagic.yaml, then start the build again.',
       detail,
     ].join('\n\n')
   }
