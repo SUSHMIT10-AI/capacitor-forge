@@ -140,7 +140,7 @@ workflows:
           echo "✅ Android NDK $NDK_VERSION available; native source builds will use 16 KB ELF alignment defaults."
           GRADLE_FILE="$CM_BUILD_DIR/android-template/app/build.gradle"
           perl -0pi -e 's/compileSdk(?:Version)?\s+\d+/compileSdk 35/g; s/targetSdk(?:Version)?\s+\d+/targetSdk 35/g; s/minSdk(?:Version)?\s+\d+/minSdk 22/g' "$GRADLE_FILE"
-          echo "android.bundle.enableUncompressedNativeLibs=true" >> "$CM_BUILD_DIR/android-template/gradle.properties"
+          grep -q '^android\.bundle\.enableUncompressedNativeLibs=true$' "$CM_BUILD_DIR/android-template/gradle.properties" || echo "android.bundle.enableUncompressedNativeLibs=true" >> "$CM_BUILD_DIR/android-template/gradle.properties"
           python3 - "$GRADLE_FILE" "$NDK_VERSION" <<'PY'
           import re, sys
           path, ndk = sys.argv[1], sys.argv[2]
@@ -539,29 +539,26 @@ workflows:
               add("android.permission.WRITE_CALENDAR")
           if enabled("KEEP_SCREEN_ON") or enabled("ENABLE_PUSH_NOTIFICATIONS"):
               add("android.permission.WAKE_LOCK")
-          # Google Play Console checks the ACTUAL uploaded AAB manifest. If the
-          # app's Play declaration says it uses advertising ID, the AAB must
-          # contain this permission for Android 13+ targets. Always declare it
-          # here; never emit tools:node="remove", because that strips the final
-          # merged permission and triggers the Play Console error shown to users.
-          add("com.google.android.gms.permission.AD_ID")
           text = open(manifest_path, encoding="utf-8").read()
-          # Ensure xmlns:tools is declared so tools:node="remove" is honored.
-          if "xmlns:tools=" not in text:
-              text = text.replace(
-                  "<manifest ",
-                  '<manifest xmlns:tools="http://schemas.android.com/tools" ',
-                  1,
-              )
-          # The template already hardcodes AD_ID as a baseline — strip it here
-          # so this step is the single source of truth and cannot leave behind
-          # a stale tools:node="remove" entry from an earlier builder version.
           import re as _re
+          # Ensure xmlns:tools exists for manifests that still contain tools attrs.
+          if "xmlns:tools=" not in text:
+              text = _re.sub(
+                  r"<manifest\b([^>]*)>",
+                  r'<manifest\1 xmlns:tools="http://schemas.android.com/tools">',
+                  text,
+                  count=1,
+              )
+          # AD_ID must match the actual ads configuration: add it only when a
+          # real AdMob App ID is present, and remove stale positive/remove nodes
+          # otherwise so Play Console policy checks match the uploaded artifact.
           text = _re.sub(
-              r'\n\s*<uses-permission[^>]*android:name="com\.google\.android\.gms\.permission\.AD_ID"[^/]*/>',
+              r'\n\s*<uses-permission[^>]*android:name="com\.google\.android\.gms\.permission\.AD_ID"[^>]*(?:/>|>\s*</uses-permission>)',
               '',
               text,
           )
+          if os.environ.get("ADMOB_APP_ID", "").strip():
+              add("com.google.android.gms.permission.AD_ID")
           marker = "\n    <!-- Optional native permissions are inserted by codemagic.yaml only when enabled. -->"
           block = marker + ("\n" + "\n".join(permissions) if permissions else "")
           if marker not in text:
@@ -636,7 +633,7 @@ workflows:
           set -euo pipefail
           INIT_SCRIPT="$HOME/.gradle/init.d/lovable-bouncycastle-jdk17.gradle"
           test -f "$INIT_SCRIPT" && grep -q 'LOVABLE_BOUNCY_CASTLE_JDK17_INIT' "$INIT_SCRIPT"
-          grep -R "LOVABLE_BOUNCY_CASTLE_JDK17_ALIGN" -n build.gradle app/build.gradle || true
+          grep -R "LOVABLE_REPOSITORY_RESOLUTION_GUARD" -n build.gradle settings.gradle || true
           BUILD_TYPE="${BUILD_TYPE:-aab}"
           echo "Building with BUILD_TYPE=$BUILD_TYPE"
           echo "VERSION_NAME=${VERSION_NAME:-<unset>} VERSION_CODE=${VERSION_CODE:-<unset>} PACKAGE_NAME=${PACKAGE_NAME:-<unset>}"
@@ -747,25 +744,45 @@ workflows:
           BUILD_TOOLS_DIR="$(ls -d $ANDROID_SDK_ROOT/build-tools/*/ | sort -V | tail -n 1)"
           AAPT2="${BUILD_TOOLS_DIR}aapt2"
 
+          ADS_ENABLED="false"
+          if [ -n "${ADMOB_APP_ID:-}" ]; then ADS_ENABLED="true"; fi
+
           check_ad_id() {
             local file="$1"
             local kind="$2"
-            echo "Inspecting $kind advertising ID permission: $file"
+            echo "Inspecting $kind advertising ID permission: $file (ads_enabled=$ADS_ENABLED)"
             if [ "$kind" = "AAB" ]; then
               curl -fsSL -o /tmp/bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
               local manifest
               manifest="$(java -jar /tmp/bundletool.jar dump manifest --bundle="$file")"
-              echo "$manifest" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null || {
-                echo "❌ AAB is missing com.google.android.gms.permission.AD_ID. Play Console will reject the advertising ID declaration."
-                exit 1
-              }
+              if [ "$ADS_ENABLED" = "true" ]; then
+                echo "$manifest" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null || {
+                  echo "❌ AAB is missing com.google.android.gms.permission.AD_ID even though AdMob is configured."
+                  exit 1
+                }
+                echo "✅ $kind contains com.google.android.gms.permission.AD_ID for AdMob."
+              else
+                if echo "$manifest" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null; then
+                  echo "❌ AAB declares com.google.android.gms.permission.AD_ID but AdMob is not configured. Remove the permission or provide ADMOB_APP_ID."
+                  exit 1
+                fi
+                echo "✅ $kind does not declare AD_ID because ads are disabled."
+              fi
             else
-              "$AAPT2" dump permissions "$file" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null || {
-                echo "❌ APK is missing com.google.android.gms.permission.AD_ID."
-                exit 1
-              }
+              if [ "$ADS_ENABLED" = "true" ]; then
+                "$AAPT2" dump permissions "$file" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null || {
+                  echo "❌ APK is missing com.google.android.gms.permission.AD_ID even though AdMob is configured."
+                  exit 1
+                }
+                echo "✅ $kind contains com.google.android.gms.permission.AD_ID for AdMob."
+              else
+                if "$AAPT2" dump permissions "$file" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null; then
+                  echo "❌ APK declares com.google.android.gms.permission.AD_ID but AdMob is not configured."
+                  exit 1
+                fi
+                echo "✅ $kind does not declare AD_ID because ads are disabled."
+              fi
             fi
-            echo "✅ $kind contains com.google.android.gms.permission.AD_ID."
           }
 
           FOUND=0
@@ -1817,25 +1834,45 @@ workflows:
           BUILD_TOOLS_DIR="$(ls -d $ANDROID_SDK_ROOT/build-tools/*/ | sort -V | tail -n 1)"
           AAPT2="${BUILD_TOOLS_DIR}aapt2"
 
+          ADS_ENABLED="false"
+          if [ -n "${ADMOB_APP_ID:-}" ]; then ADS_ENABLED="true"; fi
+
           check_ad_id() {
             local file="$1"
             local kind="$2"
-            echo "Inspecting $kind advertising ID permission: $file"
+            echo "Inspecting $kind advertising ID permission: $file (ads_enabled=$ADS_ENABLED)"
             if [ "$kind" = "AAB" ]; then
               curl -fsSL -o /tmp/bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
               local manifest
               manifest="$(java -jar /tmp/bundletool.jar dump manifest --bundle="$file")"
-              echo "$manifest" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null || {
-                echo "❌ AAB is missing com.google.android.gms.permission.AD_ID. Play Console will reject the advertising ID declaration."
-                exit 1
-              }
+              if [ "$ADS_ENABLED" = "true" ]; then
+                echo "$manifest" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null || {
+                  echo "❌ AAB is missing com.google.android.gms.permission.AD_ID even though AdMob is configured."
+                  exit 1
+                }
+                echo "✅ $kind contains com.google.android.gms.permission.AD_ID for AdMob."
+              else
+                if echo "$manifest" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null; then
+                  echo "❌ AAB declares com.google.android.gms.permission.AD_ID but AdMob is not configured. Remove the permission or provide ADMOB_APP_ID."
+                  exit 1
+                fi
+                echo "✅ $kind does not declare AD_ID because ads are disabled."
+              fi
             else
-              "$AAPT2" dump permissions "$file" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null || {
-                echo "❌ APK is missing com.google.android.gms.permission.AD_ID."
-                exit 1
-              }
+              if [ "$ADS_ENABLED" = "true" ]; then
+                "$AAPT2" dump permissions "$file" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null || {
+                  echo "❌ APK is missing com.google.android.gms.permission.AD_ID even though AdMob is configured."
+                  exit 1
+                }
+                echo "✅ $kind contains com.google.android.gms.permission.AD_ID for AdMob."
+              else
+                if "$AAPT2" dump permissions "$file" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null; then
+                  echo "❌ APK declares com.google.android.gms.permission.AD_ID but AdMob is not configured."
+                  exit 1
+                fi
+                echo "✅ $kind does not declare AD_ID because ads are disabled."
+              fi
             fi
-            echo "✅ $kind contains com.google.android.gms.permission.AD_ID."
           }
 
           FOUND=0

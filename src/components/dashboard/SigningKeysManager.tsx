@@ -55,6 +55,14 @@ const SigningKeysManager = ({ userId }: SigningKeysManagerProps) => {
       });
       return;
     }
+    if (!storePassword.trim()) {
+      toast({
+        title: "Store password required",
+        description: "Enter the store password for this release keystore before saving it.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setSaving(true);
     try {
@@ -97,8 +105,8 @@ const SigningKeysManager = ({ userId }: SigningKeysManagerProps) => {
       setKeystoreFile(null);
       setIsDefault(false);
       await loadKeys();
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Unable to save signing key.", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -138,14 +146,14 @@ const SigningKeysManager = ({ userId }: SigningKeysManagerProps) => {
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">
-                Drop your release keystore here. Alias, passwords, and name are optional — fill them only if your keystore uses non-default credentials.
+                Drop your release keystore here. The store password is required; alias can be auto-detected and key password defaults to the store password.
               </p>
             )}
           </div>
 
           <details className="rounded-lg border border-border bg-background/40 p-3">
             <summary className="cursor-pointer text-xs font-heading text-muted-foreground hover:text-foreground">
-              Advanced (alias / passwords / name) — optional
+              Advanced (alias / key password / name)
             </summary>
             <div className="mt-3 space-y-3">
               <div className="grid grid-cols-2 gap-3">
@@ -160,8 +168,8 @@ const SigningKeysManager = ({ userId }: SigningKeysManagerProps) => {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs font-heading">Store Password</Label>
-                  <Input type="password" value={storePassword} onChange={(e) => setStorePassword(e.target.value)} placeholder="Leave blank if none" />
+                  <Label className="text-xs font-heading">Store Password *</Label>
+                  <Input type="password" value={storePassword} onChange={(e) => setStorePassword(e.target.value)} placeholder="Required" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs font-heading">Key Password</Label>

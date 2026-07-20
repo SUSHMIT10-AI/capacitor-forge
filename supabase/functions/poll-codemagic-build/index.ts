@@ -133,6 +133,24 @@ Deno.serve(async (req) => {
             .eq('id', build_id)
           return json({ status: 'failed', error: msg })
         }
+        const adsEnabled = build.enable_admob === true || Boolean(String(build.admob_app_id ?? '').trim())
+        const aabDeclaresAdId = getAabDeclaresAdId(aabBlob)
+        if (adsEnabled && !aabDeclaresAdId) {
+          const msg = 'Generated AAB is missing com.google.android.gms.permission.AD_ID even though AdMob is configured. Do not upload this AAB to Play Console; re-run after the latest Ad ID permission workflow is used.'
+          await supabase
+            .from('build_configs')
+            .update({ status: 'failed', error_message: msg })
+            .eq('id', build_id)
+          return json({ status: 'failed', error: msg })
+        }
+        if (!adsEnabled && aabDeclaresAdId) {
+          const msg = 'Generated AAB declares com.google.android.gms.permission.AD_ID but AdMob is not configured. Configure a real AdMob App ID or rebuild without the permission before uploading to Play Console.'
+          await supabase
+            .from('build_configs')
+            .update({ status: 'failed', error_message: msg })
+            .eq('id', build_id)
+          return json({ status: 'failed', error: msg })
+        }
         await supabase.storage.from('build-outputs').upload(aabPath, aabBlob, {
           contentType: 'application/octet-stream',
           upsert: true,
@@ -295,7 +313,7 @@ function explainKnownFailure(detail: string | null): string | null {
 
 function getAabTargetSdk(aab: Uint8Array): string | null {
   try {
-    const files = unzipSync(aab)
+    const files = unzipSync(aab, { filter: (file) => file.name === 'base/manifest/AndroidManifest.xml' })
     const manifest = files['base/manifest/AndroidManifest.xml']
     if (!manifest) return null
     const text = new TextDecoder('utf-8', { fatal: false }).decode(manifest)
@@ -309,7 +327,7 @@ function getAabTargetSdk(aab: Uint8Array): string | null {
 
 function getAabPackageName(aab: Uint8Array): string | null {
   try {
-    const files = unzipSync(aab)
+    const files = unzipSync(aab, { filter: (file) => file.name === 'base/manifest/AndroidManifest.xml' })
     const manifest = files['base/manifest/AndroidManifest.xml']
     if (!manifest) return null
     const text = new TextDecoder('utf-8', { fatal: false }).decode(manifest)
@@ -318,6 +336,19 @@ function getAabPackageName(aab: Uint8Array): string | null {
   } catch (error) {
     console.warn('AAB package-name validation failed:', error)
     return null
+  }
+}
+
+function getAabDeclaresAdId(aab: Uint8Array): boolean {
+  try {
+    const files = unzipSync(aab, { filter: (file) => file.name === 'base/manifest/AndroidManifest.xml' })
+    const manifest = files['base/manifest/AndroidManifest.xml']
+    if (!manifest) return false
+    const text = new TextDecoder('utf-8', { fatal: false }).decode(manifest)
+    return text.includes('com.google.android.gms.permission.AD_ID')
+  } catch (error) {
+    console.warn('AAB Ad ID permission validation failed:', error)
+    return false
   }
 }
 

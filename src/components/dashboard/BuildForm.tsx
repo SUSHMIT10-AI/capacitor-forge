@@ -46,7 +46,6 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
   const [admobRewardedId, setAdmobRewardedId] = useState("");
   const [admobRewardedInterstitialId, setAdmobRewardedInterstitialId] = useState("");
   const [admobAppOpenId, setAdmobAppOpenId] = useState("");
-  const [admobTestMode, setAdmobTestMode] = useState(false);
   const [detectedPlugins, setDetectedPlugins] = useState<string[]>([]);
   const [url, setUrl] = useState("");
   const [appName, setAppName] = useState("");
@@ -58,7 +57,6 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
   const [themeColor, setThemeColor] = useState("#4f46e5");
   const [navColor, setNavColor] = useState("#000000");
   const [enableBilling, setEnableBilling] = useState(false);
-  const [enableCapacitor, setEnableCapacitor] = useState(true);
   const [customHtml, setCustomHtml] = useState("");
   const [customCss, setCustomCss] = useState("");
   const [customJs, setCustomJs] = useState("");
@@ -297,15 +295,12 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
           throw new Error(`Could not get upload URL: ${signErr?.message ?? signed?.error ?? "unknown"}`);
         }
         setBuildStep("Uploading project zip…");
-        const putRes = await fetch(signed.upload_url, {
-          method: "PUT",
-          headers: { "Content-Type": "application/zip" },
-          body: projectZip,
-        });
-        if (!putRes.ok) {
-          const detail = await putRes.text().catch(() => "");
-          throw new Error(`Project zip upload failed (${putRes.status})${detail ? `: ${detail.slice(0, 180)}` : ""}`);
-        }
+        const { error: signedUploadError } = await supabase.storage
+          .from("capacitor-projects")
+          .uploadToSignedUrl(signed.path, signed.token, projectZip, {
+            contentType: "application/zip",
+          });
+        if (signedUploadError) throw new Error(`Project zip upload failed: ${signedUploadError.message}`);
         projectZipPath = signed.path;
       }
 
@@ -321,7 +316,7 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
         admob_rewarded_id: admobRewardedId.trim() || null,
         admob_rewarded_interstitial_id: admobRewardedInterstitialId.trim() || null,
         admob_app_open_id: admobAppOpenId.trim() || null,
-        admob_test_mode: admobTestMode,
+        admob_test_mode: false,
         enable_admob: Boolean(admobAppId.trim()),
         app_name: appName.trim(),
         package_name: resolvedPackageName,
@@ -332,7 +327,7 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
         theme_color: themeColor,
         nav_color: navColor,
         enable_billing: enableBilling,
-        enable_capacitor: enableCapacitor,
+        enable_capacitor: true,
         custom_html: customHtml || null,
         custom_css: customCss || null,
         custom_js: customJs || null,
