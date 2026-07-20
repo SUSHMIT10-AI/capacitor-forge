@@ -37,6 +37,9 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
     return Math.max(1, major * 10000 + minor * 100 + patch);
   };
   const packageNamePattern = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/;
+  const admobAppIdPattern = /^ca-app-pub-\d+~\d+$/;
+  const admobUnitIdPattern = /^ca-app-pub-\d+\/\d+$/;
+  const googleSampleAdMobPublisher = "ca-app-pub-3940256099942544";
 
   const [buildMode, setBuildMode] = useState<"webview" | "capacitor">("webview");
   const [projectZip, setProjectZip] = useState<File | null>(null);
@@ -269,6 +272,30 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
     if (!signingKeyId && signingKeys.length > 0) {
       toast({ title: "Select a signing key", description: "Choose which keystore to sign this build with.", variant: "destructive" });
       return;
+    }
+    const adUnitEntries = [
+      ["Banner", admobBannerId.trim()],
+      ["Interstitial", admobInterstitialId.trim()],
+      ["Rewarded", admobRewardedId.trim()],
+      ["Rewarded interstitial", admobRewardedInterstitialId.trim()],
+      ["App open", admobAppOpenId.trim()],
+    ] as const;
+    const hasAnyAdUnit = adUnitEntries.some(([, value]) => Boolean(value));
+    const resolvedAdMobAppId = admobAppId.trim();
+    if ((resolvedAdMobAppId || hasAnyAdUnit) && !admobAppIdPattern.test(resolvedAdMobAppId)) {
+      toast({ title: "Valid AdMob App ID required", description: "Use your real AdMob App ID, like ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY.", variant: "destructive" });
+      return;
+    }
+    if (resolvedAdMobAppId.startsWith(googleSampleAdMobPublisher)) {
+      toast({ title: "Test AdMob ID blocked", description: "Google sample/test AdMob IDs are not allowed. Enter your real AdMob App ID.", variant: "destructive" });
+      return;
+    }
+    for (const [label, value] of adUnitEntries) {
+      if (!value) continue;
+      if (!admobUnitIdPattern.test(value) || value.startsWith(googleSampleAdMobPublisher)) {
+        toast({ title: `${label} ad unit is invalid`, description: "Use a real AdMob ad unit ID from your own account, like ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY.", variant: "destructive" });
+        return;
+      }
     }
 
     setBuilding(true);
