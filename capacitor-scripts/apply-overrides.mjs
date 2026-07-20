@@ -67,6 +67,30 @@ if (ADMOB_APP_ID && !/^ca-app-pub-\d+~\d+$/.test(ADMOB_APP_ID)) {
   process.exit(1)
 }
 
+const GOOGLE_ADMOB_SAMPLE_PUBLISHER = 'ca-app-pub-3940256099942544'
+const ADMOB_UNIT_IDS = [
+  ['ADMOB_BANNER_ID', ADMOB_BANNER_ID],
+  ['ADMOB_INTERSTITIAL_ID', ADMOB_INTERSTITIAL_ID],
+  ['ADMOB_REWARDED_ID', ADMOB_REWARDED_ID],
+  ['ADMOB_REWARDED_INTERSTITIAL_ID', ADMOB_REWARDED_INTERSTITIAL_ID],
+  ['ADMOB_APP_OPEN_ID', ADMOB_APP_OPEN_ID],
+]
+if (ADMOB_APP_ID && ADMOB_APP_ID.startsWith(GOOGLE_ADMOB_SAMPLE_PUBLISHER)) {
+  console.error('Google sample/test AdMob App IDs are not allowed. Use your real AdMob App ID from your AdMob account.')
+  process.exit(1)
+}
+for (const [name, value] of ADMOB_UNIT_IDS) {
+  if (!value) continue
+  if (!/^ca-app-pub-\d+\/\d+$/.test(value)) {
+    console.error(`Invalid ${name} format: "${value}". Expected ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY`)
+    process.exit(1)
+  }
+  if (value.startsWith(GOOGLE_ADMOB_SAMPLE_PUBLISHER)) {
+    console.error(`Google sample/test ${name} is not allowed. Use a real ad unit ID from your AdMob account.`)
+    process.exit(1)
+  }
+}
+
 const log = (...a) => console.log('[apply-overrides]', ...a)
 const warn = (...a) => console.warn('[apply-overrides][warn]', ...a)
 
@@ -354,10 +378,13 @@ function patchCapacitorConfigJson() {
   cfg.plugins = cfg.plugins || {}
   if (ADMOB_APP_ID) {
     cfg.plugins.AdMob = {
+      ...(cfg.plugins.AdMob || {}),
       appId: ADMOB_APP_ID,
       initializeForTesting: false,
-      ...(cfg.plugins.AdMob || {}),
+      testingDevices: [],
     }
+  } else if (cfg.plugins.AdMob) {
+    delete cfg.plugins.AdMob
   }
   if (ENABLE_NATIVE_SPLASH) {
     cfg.plugins.SplashScreen = {
@@ -514,7 +541,7 @@ function injectAdMobBootstrap() {
       AdMob.initialize({
         requestTrackingAuthorization: true,
         testingDevices: [],
-        initializeForTesting: !!ids.testMode,
+        initializeForTesting: false,
       }).then(function () {
         window.dispatchEvent(new CustomEvent('capacitor-admob-ready'));
       }).catch(function (err) { console.warn('[AdMob init failed]', err); });
@@ -550,7 +577,7 @@ function injectAdMobBootstrap() {
     rewarded: ADMOB_REWARDED_ID,
     rewardedInterstitial: ADMOB_REWARDED_INTERSTITIAL_ID,
     appOpen: ADMOB_APP_OPEN_ID,
-    testMode: ADMOB_TEST_MODE,
+    testMode: false,
   }
   fs.writeFileSync(
     idsFile,
