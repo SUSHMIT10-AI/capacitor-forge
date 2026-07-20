@@ -129,7 +129,7 @@ export function isAdMobAvailable(): boolean {
 export const AdMob = {
   isAvailable: isAdMobAvailable,
   initialize: (opts?: Record<string, unknown>) =>
-    bridge()?.initialize(opts) ?? notNative("initialize"),
+    bridge()?.initialize({ ...(opts || {}), testingDevices: [], initializeForTesting: false }) ?? notNative("initialize"),
 
   // Banner
   loadBanner:   (opts: BannerOptions) => bridge()?.loadBanner(opts)   ?? notNative("loadBanner"),
@@ -190,8 +190,8 @@ export const AdMob = {
       adSize: "ADAPTIVE_BANNER",
       position: "BOTTOM_CENTER",
       margin: 0,
-      isTesting: !!ids.testMode,
       ...(opts || {}),
+      isTesting: false,
     });
   },
 
@@ -199,7 +199,7 @@ export const AdMob = {
   async showInterstitialAd() {
     const ids = (typeof window !== "undefined" && window.__ADMOB_IDS__) || {};
     if (!ids.interstitial) throw new Error("[admob] No interstitial ad unit ID configured.");
-    await AdMob.loadInterstitial({ adId: ids.interstitial, isTesting: !!ids.testMode });
+    await AdMob.loadInterstitial({ adId: ids.interstitial, isTesting: false });
     return AdMob.showInterstitial();
   },
 
@@ -222,7 +222,7 @@ export const AdMob = {
         offReward(); offClosed(); offFail();
         reject(new Error(d.error?.message || "Rewarded ad failed to load"));
       });
-      AdMob.loadRewarded({ adId: ids.rewarded!, isTesting: !!ids.testMode })
+      AdMob.loadRewarded({ adId: ids.rewarded!, isTesting: false })
         .then(() => AdMob.showRewarded())
         .catch((err) => { offReward(); offClosed(); offFail(); reject(err); });
     });
@@ -247,7 +247,7 @@ export const AdMob = {
         offReward(); offClosed(); offFail();
         reject(new Error(d.error?.message || "Rewarded interstitial failed to load"));
       });
-      AdMob.loadRewardedInterstitial({ adId: ids.rewardedInterstitial!, isTesting: !!ids.testMode })
+      AdMob.loadRewardedInterstitial({ adId: ids.rewardedInterstitial!, isTesting: false })
         .then(() => AdMob.showRewardedInterstitial())
         .catch((err) => { offReward(); offClosed(); offFail(); reject(err); });
     });
@@ -257,7 +257,7 @@ export const AdMob = {
   async showAppOpenAd() {
     const ids = (typeof window !== "undefined" && window.__ADMOB_IDS__) || {};
     if (!ids.appOpen) throw new Error("[admob] No app-open ad unit ID configured.");
-    await AdMob.loadAppOpen({ adId: ids.appOpen, isTesting: !!ids.testMode });
+    await AdMob.loadAppOpen({ adId: ids.appOpen, isTesting: false });
     return AdMob.showAppOpen();
   },
 };
