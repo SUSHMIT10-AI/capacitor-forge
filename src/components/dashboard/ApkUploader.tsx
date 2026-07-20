@@ -1,7 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Upload, Loader2, FileDown, Trash2, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { Upload, Loader2, FileDown, Trash2, Clock, CheckCircle2, XCircle, type LucideIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -16,7 +16,7 @@ interface Conversion {
   storage_path: string | null;
 }
 
-const statusConfig: Record<ConversionStatus, { icon: any; label: string; className: string }> = {
+const statusConfig: Record<ConversionStatus, { icon: LucideIcon; label: string; className: string }> = {
   pending: { icon: Clock, label: "Pending", className: "text-warning" },
   processing: { icon: Loader2, label: "Processing", className: "text-primary animate-spin" },
   complete: { icon: CheckCircle2, label: "Complete", className: "text-success" },
@@ -42,7 +42,9 @@ const ApkUploader = ({ userId }: ApkUploaderProps) => {
     if (data) setConversions(data as Conversion[]);
   };
 
-  useState(() => { loadConversions(); });
+  useEffect(() => {
+    loadConversions();
+  }, []);
 
   const handleFile = useCallback(async (file: File) => {
     if (!file.name.endsWith(".apk")) {
@@ -82,9 +84,9 @@ const ApkUploader = ({ userId }: ApkUploaderProps) => {
         await loadConversions();
         toast({ title: "Conversion complete!", description: `${file.name.replace(".apk", ".aab")} is ready` });
       }, 5000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       clearInterval(interval);
-      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+      toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Unable to upload file.", variant: "destructive" });
     } finally {
       setUploading(false);
       setUploadProgress(0);

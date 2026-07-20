@@ -37,6 +37,9 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
     return Math.max(1, major * 10000 + minor * 100 + patch);
   };
   const packageNamePattern = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/;
+  const admobAppIdPattern = /^ca-app-pub-\d+~\d+$/;
+  const admobUnitIdPattern = /^ca-app-pub-\d+\/\d+$/;
+  const googleSampleAdMobPublisher = "ca-app-pub-3940256099942544";
 
   const [buildMode, setBuildMode] = useState<"webview" | "capacitor">("webview");
   const [projectZip, setProjectZip] = useState<File | null>(null);
@@ -46,7 +49,6 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
   const [admobRewardedId, setAdmobRewardedId] = useState("");
   const [admobRewardedInterstitialId, setAdmobRewardedInterstitialId] = useState("");
   const [admobAppOpenId, setAdmobAppOpenId] = useState("");
-  const [admobTestMode, setAdmobTestMode] = useState(false);
   const [detectedPlugins, setDetectedPlugins] = useState<string[]>([]);
   const [url, setUrl] = useState("");
   const [appName, setAppName] = useState("");
@@ -58,7 +60,6 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
   const [themeColor, setThemeColor] = useState("#4f46e5");
   const [navColor, setNavColor] = useState("#000000");
   const [enableBilling, setEnableBilling] = useState(false);
-  const [enableCapacitor, setEnableCapacitor] = useState(true);
   const [customHtml, setCustomHtml] = useState("");
   const [customCss, setCustomCss] = useState("");
   const [customJs, setCustomJs] = useState("");
@@ -272,6 +273,30 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
       toast({ title: "Select a signing key", description: "Choose which keystore to sign this build with.", variant: "destructive" });
       return;
     }
+    const adUnitEntries = [
+      ["Banner", admobBannerId.trim()],
+      ["Interstitial", admobInterstitialId.trim()],
+      ["Rewarded", admobRewardedId.trim()],
+      ["Rewarded interstitial", admobRewardedInterstitialId.trim()],
+      ["App open", admobAppOpenId.trim()],
+    ] as const;
+    const hasAnyAdUnit = adUnitEntries.some(([, value]) => Boolean(value));
+    const resolvedAdMobAppId = admobAppId.trim();
+    if ((resolvedAdMobAppId || hasAnyAdUnit) && !admobAppIdPattern.test(resolvedAdMobAppId)) {
+      toast({ title: "Valid AdMob App ID required", description: "Use your real AdMob App ID, like ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY.", variant: "destructive" });
+      return;
+    }
+    if (resolvedAdMobAppId.startsWith(googleSampleAdMobPublisher)) {
+      toast({ title: "Test AdMob ID blocked", description: "Google sample/test AdMob IDs are not allowed. Enter your real AdMob App ID.", variant: "destructive" });
+      return;
+    }
+    for (const [label, value] of adUnitEntries) {
+      if (!value) continue;
+      if (!admobUnitIdPattern.test(value) || value.startsWith(googleSampleAdMobPublisher)) {
+        toast({ title: `${label} ad unit is invalid`, description: "Use a real AdMob ad unit ID from your own account, like ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY.", variant: "destructive" });
+        return;
+      }
+    }
 
     setBuilding(true);
     setBuildStep("Preparing build…");
@@ -297,15 +322,12 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
           throw new Error(`Could not get upload URL: ${signErr?.message ?? signed?.error ?? "unknown"}`);
         }
         setBuildStep("Uploading project zip…");
-        const putRes = await fetch(signed.upload_url, {
-          method: "PUT",
-          headers: { "Content-Type": "application/zip" },
-          body: projectZip,
-        });
-        if (!putRes.ok) {
-          const detail = await putRes.text().catch(() => "");
-          throw new Error(`Project zip upload failed (${putRes.status})${detail ? `: ${detail.slice(0, 180)}` : ""}`);
-        }
+        const { error: signedUploadError } = await supabase.storage
+          .from("capacitor-projects")
+          .uploadToSignedUrl(signed.path, signed.token, projectZip, {
+            contentType: "application/zip",
+          });
+        if (signedUploadError) throw new Error(`Project zip upload failed: ${signedUploadError.message}`);
         projectZipPath = signed.path;
       }
 
@@ -321,7 +343,7 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
         admob_rewarded_id: admobRewardedId.trim() || null,
         admob_rewarded_interstitial_id: admobRewardedInterstitialId.trim() || null,
         admob_app_open_id: admobAppOpenId.trim() || null,
-        admob_test_mode: admobTestMode,
+        admob_test_mode: false,
         enable_admob: Boolean(admobAppId.trim()),
         app_name: appName.trim(),
         package_name: resolvedPackageName,
@@ -332,7 +354,7 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
         theme_color: themeColor,
         nav_color: navColor,
         enable_billing: enableBilling,
-        enable_capacitor: enableCapacitor,
+        enable_capacitor: true,
         custom_html: customHtml || null,
         custom_css: customCss || null,
         custom_js: customJs || null,

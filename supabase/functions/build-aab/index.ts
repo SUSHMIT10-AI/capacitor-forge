@@ -69,6 +69,15 @@ Deno.serve(async (req) => {
       return json({ error: msg }, 400)
     }
 
+    const adMobValidation = validateAdMobIds(build)
+    if (adMobValidation) {
+      await supabase
+        .from('build_configs')
+        .update({ status: 'failed', error_message: adMobValidation })
+        .eq('id', build_id)
+      return json({ error: adMobValidation }, 400)
+    }
+
     // Build a public icon URL if user uploaded one
     let iconUrl = ''
     if (build.icon_path) {
@@ -424,4 +433,27 @@ function versionNameToCode(value: string) {
 
 function isValidPackageName(value: string) {
   return /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/.test(value)
+}
+
+function validateAdMobIds(build: any): string | null {
+  const samplePublisher = 'ca-app-pub-3940256099942544'
+  const appId = String(build.admob_app_id ?? '').trim()
+  const units = [
+    ['banner', build.admob_banner_id],
+    ['interstitial', build.admob_interstitial_id],
+    ['rewarded', build.admob_rewarded_id],
+    ['rewarded interstitial', build.admob_rewarded_interstitial_id],
+    ['app open', build.admob_app_open_id],
+  ].map(([label, value]) => [label, String(value ?? '').trim()] as const)
+  const hasUnits = units.some(([, value]) => Boolean(value))
+  if (!appId && hasUnits) return 'AdMob ad unit IDs were provided but the AdMob App ID is missing.'
+  if (!appId) return null
+  if (!/^ca-app-pub-\d+~\d+$/.test(appId)) return 'Invalid AdMob App ID format. Use ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY.'
+  if (appId.startsWith(samplePublisher)) return 'Google sample/test AdMob App IDs are not allowed. Use your real AdMob App ID.'
+  for (const [label, value] of units) {
+    if (!value) continue
+    if (!/^ca-app-pub-\d+\/\d+$/.test(value)) return `Invalid ${label} AdMob ad unit ID format.`
+    if (value.startsWith(samplePublisher)) return `Google sample/test ${label} AdMob ad unit IDs are not allowed.`
+  }
+  return null
 }

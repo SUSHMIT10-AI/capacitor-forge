@@ -7,7 +7,7 @@ AABforge builds signed Android App Bundles for Google Play from web URLs or uplo
 - `compileSdk 35`, `targetSdk 35`, and `minSdk 22` are enforced in the build workflow.
 - All Google Play ABIs are included: `armeabi-v7a`, `arm64-v8a`, `x86`, and `x86_64`.
 - Release builds require an uploaded `.jks` / `.keystore` and are signed for Play Console upload.
-- Production AdMob builds inject the AdMob app ID, ad unit IDs, and `com.google.android.gms.permission.AD_ID`.
+- Production AdMob builds inject the AdMob app ID, ad unit IDs, Google Mobile Ads SDK, and `com.google.android.gms.permission.AD_ID`; builds without AdMob strip `AD_ID` so Play policy declarations match the artifact.
 - Google Mobile Ads / Play services are pinned to minSdk-22-compatible versions.
 - NDK r28+ is installed and enforced for 16 KB page-size ELF alignment.
 - `android.bundle.enableUncompressedNativeLibs=true` + `jniLibs.useLegacyPackaging=false` + `android:extractNativeLibs="false"` for Play's 16 KB requirement.
@@ -19,7 +19,7 @@ AABforge builds signed Android App Bundles for Google Play from web URLs or uplo
 | --- | --- |
 | `targetSdk 35` (Android 15) | `capacitor-scripts/apply-overrides.mjs`, `validate-build.mjs`, `codemagic.yaml` |
 | `minSdk 22` for broad device support | Same as above; hard-checked before assembly |
-| Advertising ID permission (`com.google.android.gms.permission.AD_ID`) | Base `AndroidManifest.xml`, re-injected + verified in `codemagic.yaml` |
+| Advertising ID permission (`com.google.android.gms.permission.AD_ID`) | Injected + verified only when a real AdMob App ID is configured; stripped otherwise |
 | Real AdMob IDs only (no test IDs) | `ADMOB_TEST_MODE` hard-disabled in `build-aab` + builder scripts |
 | 16 KB page-size native library packaging | `gradle.properties`, `build.gradle`, `AndroidManifest.xml`, verified by `verify-android-16kb.py` |
 | Signed AAB with user keystore | `sign-capacitor-upload` edge function + Codemagic signing step |
@@ -36,7 +36,7 @@ These are **policy declarations**, not build artifacts — the builder cannot to
 4. **Target audience & content** — required for all new apps.
 5. **App access** — if the app has login, provide test credentials.
 
-If Play Console keeps rejecting the AAB after a successful build, it is almost always one of the five items above — the artifact itself already satisfies technical requirements (target SDK 35, AD_ID permission, 16 KB alignment, real ad IDs, signed).
+If Play Console keeps rejecting the AAB after a successful build, it is almost always one of the five items above — the artifact itself already satisfies technical requirements (target SDK 35, conditional AD_ID permission, 16 KB alignment, real ad IDs, signed).
 
 ## Latest build fix
 

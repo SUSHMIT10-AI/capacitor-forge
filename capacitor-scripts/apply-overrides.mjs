@@ -40,6 +40,7 @@ const ADMOB_INTERSTITIAL_ID = (process.env.ADMOB_INTERSTITIAL_ID || '').trim()
 const ADMOB_REWARDED_ID = (process.env.ADMOB_REWARDED_ID || '').trim()
 const ADMOB_REWARDED_INTERSTITIAL_ID = (process.env.ADMOB_REWARDED_INTERSTITIAL_ID || '').trim()
 const ADMOB_APP_OPEN_ID = (process.env.ADMOB_APP_OPEN_ID || '').trim()
+const ADMOB_ENABLED = !!ADMOB_APP_ID
 // AdMob test mode is force-disabled at the build layer — production AABs must
 // always serve real ad creatives from the user's configured ad unit IDs.
 const ADMOB_TEST_MODE = false
@@ -64,6 +65,30 @@ if (ADMOB_APP_ID && !/^ca-app-pub-\d+~\d+$/.test(ADMOB_APP_ID)) {
     `Invalid ADMOB_APP_ID format: "${ADMOB_APP_ID}". Expected ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY`,
   )
   process.exit(1)
+}
+
+const GOOGLE_ADMOB_SAMPLE_PUBLISHER = 'ca-app-pub-3940256099942544'
+const ADMOB_UNIT_IDS = [
+  ['ADMOB_BANNER_ID', ADMOB_BANNER_ID],
+  ['ADMOB_INTERSTITIAL_ID', ADMOB_INTERSTITIAL_ID],
+  ['ADMOB_REWARDED_ID', ADMOB_REWARDED_ID],
+  ['ADMOB_REWARDED_INTERSTITIAL_ID', ADMOB_REWARDED_INTERSTITIAL_ID],
+  ['ADMOB_APP_OPEN_ID', ADMOB_APP_OPEN_ID],
+]
+if (ADMOB_APP_ID && ADMOB_APP_ID.startsWith(GOOGLE_ADMOB_SAMPLE_PUBLISHER)) {
+  console.error('Google sample/test AdMob App IDs are not allowed. Use your real AdMob App ID from your AdMob account.')
+  process.exit(1)
+}
+for (const [name, value] of ADMOB_UNIT_IDS) {
+  if (!value) continue
+  if (!/^ca-app-pub-\d+\/\d+$/.test(value)) {
+    console.error(`Invalid ${name} format: "${value}". Expected ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY`)
+    process.exit(1)
+  }
+  if (value.startsWith(GOOGLE_ADMOB_SAMPLE_PUBLISHER)) {
+    console.error(`Google sample/test ${name} is not allowed. Use a real ad unit ID from your AdMob account.`)
+    process.exit(1)
+  }
 }
 
 const log = (...a) => console.log('[apply-overrides]', ...a)
@@ -353,10 +378,13 @@ function patchCapacitorConfigJson() {
   cfg.plugins = cfg.plugins || {}
   if (ADMOB_APP_ID) {
     cfg.plugins.AdMob = {
+      ...(cfg.plugins.AdMob || {}),
       appId: ADMOB_APP_ID,
       initializeForTesting: false,
-      ...(cfg.plugins.AdMob || {}),
+      testingDevices: [],
     }
+  } else if (cfg.plugins.AdMob) {
+    delete cfg.plugins.AdMob
   }
   if (ENABLE_NATIVE_SPLASH) {
     cfg.plugins.SplashScreen = {
@@ -513,7 +541,7 @@ function injectAdMobBootstrap() {
       AdMob.initialize({
         requestTrackingAuthorization: true,
         testingDevices: [],
-        initializeForTesting: !!ids.testMode,
+        initializeForTesting: false,
       }).then(function () {
         window.dispatchEvent(new CustomEvent('capacitor-admob-ready'));
       }).catch(function (err) { console.warn('[AdMob init failed]', err); });
@@ -549,7 +577,7 @@ function injectAdMobBootstrap() {
     rewarded: ADMOB_REWARDED_ID,
     rewardedInterstitial: ADMOB_REWARDED_INTERSTITIAL_ID,
     appOpen: ADMOB_APP_OPEN_ID,
-    testMode: ADMOB_TEST_MODE,
+    testMode: false,
   }
   fs.writeFileSync(
     idsFile,
@@ -926,10 +954,27 @@ allprojects { project ->
       ensurePerm('android.permission.CAMERA')
     }
     if (ENABLE_BILLING) ensurePerm('com.android.vending.BILLING')
-    // Google Play Console checks the uploaded AAB manifest for Android 13+
-    // advertising ID declarations. Always keep the positive permission and
-    // remove any stale tools:node="remove" entry from older builder runs.
-    ensurePerm('com.google.android.gms.permission.AD_ID', true)
+    // Google Play checks the actual uploaded AAB manifest. Declare AD_ID only
+    // when a real AdMob App ID is configured; otherwise strip stale AD_ID entries
+    // so the artifact does not conflict with the Play Console policy forms.
+    if (ADMOB_ENABLED) {
+      ensurePerm('com.google.android.gms.permission.AD_ID', true)
+    } else {
+      stripPerm('com.google.android.gms.permission.AD_ID')
+      // If the uploaded project already bundles Google Mobile Ads, its library
+      // manifest can re-add AD_ID during manifest merge. Keep an explicit remove
+      // node so the final AAB does not declare AD_ID when AdMob is disabled.
+      if (!/com\.google\.android\.gms\.permission\.AD_ID/.test(m)) {
+        m = m.replace(
+          /<manifest([^>]*)>/,
+          `<manifest$1>\n    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />`,
+        )
+      }
+      m = m.replace(
+        /\n\s*<meta-data\s+android:name=["']com\.google\.android\.gms\.ads\.APPLICATION_ID["'][^>]*(?:\/>|>\s*<\/meta-data>)/g,
+        '',
+      )
+    }
 
     // 16 KB page-size compatibility — ensure <application> declares
     // android:extractNativeLibs="false" so the OS mmap's the .so files
@@ -1006,8 +1051,11 @@ if (process.env.REQUIRE_ANDROID === 'true' && !exists(androidDir)) {
 const manifestFile = path.join(androidDir, 'app', 'src', 'main', 'AndroidManifest.xml')
 if (exists(manifestFile)) {
   const m = fs.readFileSync(manifestFile, 'utf8')
-  if (!m.includes('com.google.android.gms.permission.AD_ID') || /com\.google\.android\.gms\.permission\.AD_ID["'][^>]*tools:node=["']remove["']/.test(m))
-    validationErrors.push('AndroidManifest.xml must contain a positive com.google.android.gms.permission.AD_ID declaration for Play Console Android 13+ advertising ID checks')
+  const hasAdIdPermission = m.includes('com.google.android.gms.permission.AD_ID') && !/com\.google\.android\.gms\.permission\.AD_ID["'][^>]*tools:node=["']remove["']/.test(m)
+  if (ADMOB_ENABLED && !hasAdIdPermission)
+    validationErrors.push('AndroidManifest.xml must contain a positive com.google.android.gms.permission.AD_ID declaration when AdMob is configured')
+  if (!ADMOB_ENABLED && hasAdIdPermission)
+    validationErrors.push('AndroidManifest.xml declares AD_ID but ADMOB_APP_ID is empty; configure AdMob or remove the permission')
   if (ADMOB_APP_ID && !m.includes(ADMOB_APP_ID))
     validationErrors.push('AndroidManifest.xml is missing the AdMob APPLICATION_ID after patching')
 }

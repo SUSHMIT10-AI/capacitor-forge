@@ -77,6 +77,8 @@ def envUserAgent   = envOrEmpty("USER_AGENT_OVERRIDE")
 
 def envEnableBilling   = envOrEmpty("ENABLE_BILLING").toLowerCase() == "true"
 def envEnableCapacitor = envOrEmpty("ENABLE_CAPACITOR").toLowerCase() == "true"
+def envAdmobAppId      = envOrEmpty("ADMOB_APP_ID")
+def envEnableAdmob     = !envAdmobAppId.isEmpty()
 
 def boolEnv = { String name, boolean def_ ->
     def v = System.getenv(name)
@@ -214,6 +216,8 @@ android {
                 keyPassword ksKeyPassword
                 enableV1Signing true
                 enableV2Signing true
+                enableV3Signing true
+                enableV4Signing true
             }
         }
     }
@@ -314,6 +318,12 @@ dependencies {
     if (envEnableCapacitor) {
         // Capacitor 6.2.0+ ships .so files aligned to 16 KB pages.
         implementation 'com.capacitorjs:core:6.2.1'
+    }
+
+    if (envEnableAdmob) {
+        // Pin a minSdk-22-compatible Mobile Ads SDK. AD_ID permission is inserted
+        // by codemagic.yaml only when ADMOB_APP_ID is present.
+        implementation 'com.google.android.gms:play-services-ads:23.6.0'
     }
 
 }

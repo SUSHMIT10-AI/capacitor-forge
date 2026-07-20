@@ -119,11 +119,11 @@
     initialize: function (opts) {
       if (!isNative()) return notNative('initialize');
       wireListeners();
-      return plugin().initialize(Object.assign({
+      return plugin().initialize(Object.assign({}, opts || {}, {
         requestTrackingAuthorization: true,
         testingDevices: [],
         initializeForTesting: false,
-      }, opts || {})).then(function (r) {
+      })).then(function (r) {
         emit('ready', {});
         return r;
       });
