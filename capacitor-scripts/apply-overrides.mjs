@@ -1065,10 +1065,9 @@ const manifestFile = path.join(androidDir, 'app', 'src', 'main', 'AndroidManifes
 if (exists(manifestFile)) {
   const m = fs.readFileSync(manifestFile, 'utf8')
   const hasAdIdPermission = m.includes('com.google.android.gms.permission.AD_ID') && !/com\.google\.android\.gms\.permission\.AD_ID["'][^>]*tools:node=["']remove["']/.test(m)
-  if (ADMOB_ENABLED && !hasAdIdPermission)
-    validationErrors.push('AndroidManifest.xml must contain a positive com.google.android.gms.permission.AD_ID declaration when AdMob is configured')
-  if (!ADMOB_ENABLED && hasAdIdPermission)
-    validationErrors.push('AndroidManifest.xml declares AD_ID but ADMOB_APP_ID is empty; configure AdMob or remove the permission')
+  if (!hasAdIdPermission)
+    validationErrors.push('AndroidManifest.xml must contain a positive com.google.android.gms.permission.AD_ID declaration for Play Console policy compliance')
+
   if (ADMOB_APP_ID && !m.includes(ADMOB_APP_ID))
     validationErrors.push('AndroidManifest.xml is missing the AdMob APPLICATION_ID after patching')
 }
