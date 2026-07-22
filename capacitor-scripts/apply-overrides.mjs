@@ -974,27 +974,20 @@ allprojects { project ->
       ensurePerm('android.permission.CAMERA')
     }
     if (ENABLE_BILLING) ensurePerm('com.android.vending.BILLING')
-    // Google Play checks the actual uploaded AAB manifest. Declare AD_ID only
-    // when a real AdMob App ID is configured; otherwise strip stale AD_ID entries
-    // so the artifact does not conflict with the Play Console policy forms.
-    if (ADMOB_ENABLED) {
-      ensurePerm('com.google.android.gms.permission.AD_ID', true)
-    } else {
-      stripPerm('com.google.android.gms.permission.AD_ID')
-      // If the uploaded project already bundles Google Mobile Ads, its library
-      // manifest can re-add AD_ID during manifest merge. Keep an explicit remove
-      // node so the final AAB does not declare AD_ID when AdMob is disabled.
-      if (!/com\.google\.android\.gms\.permission\.AD_ID/.test(m)) {
-        m = m.replace(
-          /<manifest([^>]*)>/,
-          `<manifest$1>\n    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />`,
-        )
-      }
+    // Google Play requires com.google.android.gms.permission.AD_ID on any
+    // app targeting Android 13+ that can display ads (native AdMob, web ads
+    // inside the WebView, or third-party ad SDKs). Always declare it and
+    // strip any stale tools:node="remove" nodes so the merged manifest ends
+    // up with a single positive declaration.
+    stripPerm('com.google.android.gms.permission.AD_ID')
+    ensurePerm('com.google.android.gms.permission.AD_ID', true)
+    if (!ADMOB_ENABLED) {
       m = m.replace(
         /\n\s*<meta-data\s+android:name=["']com\.google\.android\.gms\.ads\.APPLICATION_ID["'][^>]*(?:\/>|>\s*<\/meta-data>)/g,
         '',
       )
     }
+
 
     // 16 KB page-size compatibility — ensure <application> declares
     // android:extractNativeLibs="false" so the OS mmap's the .so files
