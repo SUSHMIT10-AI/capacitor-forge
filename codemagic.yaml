@@ -1205,10 +1205,15 @@ workflows:
           if variables.exists():
               vars_text = variables.read_text(encoding='utf-8')
               ndk = os.environ.get('LOVABLE_NDK_VERSION', '28.0.13004108')
-              if re.search(r'ndkVersion\s*=', vars_text):
-                  vars_text = re.sub(r'ndkVersion\s*=\s*["\'][^"\']+["\']', f"ndkVersion = '{ndk}'", vars_text)
+              safe_ndk = f"ext.ndkVersion = '{ndk}'"
+              vars_text = re.sub(r'(^|\n)\s*ndkVersion\s*=\s*["\'][^"\']+["\']\s*(?=\n|$)', r'\1' + safe_ndk, vars_text)
+              vars_text = re.sub(r'(^|\n)\s*ext\.ndkVersion\s*=\s*["\'][^"\']+["\']\s*(?=\n|$)', r'\1' + safe_ndk, vars_text)
+              if re.search(r'(?:^|\n)\s*(?:ext\.)?ndkVersion\s*=', vars_text):
+                  pass
+              elif re.search(r'ext\s*\{[\s\S]*?\n\}', vars_text):
+                  vars_text = re.sub(r'(ext\s*\{[\s\S]*?)\n\}', r"\1\n    ndkVersion = '" + ndk + r"'\n}", vars_text, count=1)
               else:
-                  vars_text += ('\n' if vars_text and not vars_text.endswith('\n') else '') + f"ndkVersion = '{ndk}'\n"
+                  vars_text += ('\n' if vars_text and not vars_text.endswith('\n') else '') + safe_ndk + '\n'
               variables.write_text(vars_text, encoding='utf-8')
           if gradle_props.exists():
               props = gradle_props.read_text(encoding='utf-8')
@@ -1779,10 +1784,15 @@ workflows:
           if variables.exists():
               vars_text = variables.read_text(encoding='utf-8')
               ndk = os.environ.get('LOVABLE_NDK_VERSION', '28.0.13004108')
-              if re.search(r'ndkVersion\s*=', vars_text):
-                  vars_text = re.sub(r'ndkVersion\s*=\s*["\'][^"\']+["\']', f"ndkVersion = '{ndk}'", vars_text)
+              safe_ndk = f"ext.ndkVersion = '{ndk}'"
+              vars_text = re.sub(r'(^|\n)\s*ndkVersion\s*=\s*["\'][^"\']+["\']\s*(?=\n|$)', r'\1' + safe_ndk, vars_text)
+              vars_text = re.sub(r'(^|\n)\s*ext\.ndkVersion\s*=\s*["\'][^"\']+["\']\s*(?=\n|$)', r'\1' + safe_ndk, vars_text)
+              if re.search(r'(?:^|\n)\s*(?:ext\.)?ndkVersion\s*=', vars_text):
+                  pass
+              elif re.search(r'ext\s*\{[\s\S]*?\n\}', vars_text):
+                  vars_text = re.sub(r'(ext\s*\{[\s\S]*?)\n\}', r"\1\n    ndkVersion = '" + ndk + r"'\n}", vars_text, count=1)
               else:
-                  vars_text += ('\n' if vars_text and not vars_text.endswith('\n') else '') + f"ndkVersion = '{ndk}'\n"
+                  vars_text += ('\n' if vars_text and not vars_text.endswith('\n') else '') + safe_ndk + '\n'
               variables.write_text(vars_text, encoding='utf-8')
 
           props = gradle_props.read_text(encoding='utf-8') if gradle_props.exists() else ''

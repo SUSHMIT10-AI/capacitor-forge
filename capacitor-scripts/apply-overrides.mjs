@@ -315,6 +315,23 @@ function forceNdk28(source, isKts = false) {
   return next
 }
 
+function forceVariablesGradleNdk(source) {
+  const safeLine = `ext.ndkVersion = '${LOVABLE_NDK_VERSION}'`
+  let next = source
+    .replace(/(^|\n)\s*ndkVersion\s*=\s*["'][^"']+["']\s*(?=\n|$)/g, `$1${safeLine}`)
+    .replace(/(^|\n)\s*ext\.ndkVersion\s*=\s*["'][^"']+["']\s*(?=\n|$)/g, `$1${safeLine}`)
+
+  if (/\bndkVersion\s*=/.test(next) || /\bext\.ndkVersion\s*=/.test(next)) return next
+
+  const extBlock = next.match(/ext\s*\{[\s\S]*?\n\}/)
+  if (extBlock) {
+    const patchedBlock = extBlock[0].replace(/\n\}/, `\n    ndkVersion = '${LOVABLE_NDK_VERSION}'\n}`)
+    return next.replace(extBlock[0], patchedBlock)
+  }
+
+  return `${next.endsWith('\n') || next === '' ? next : `${next}\n`}${safeLine}\n`
+}
+
 /* ---------- Supported Capacitor plugin catalog ----------
  * Plugins listed here will be auto-installed when:
  *   a) the user's package.json already references them (detected)
@@ -761,15 +778,10 @@ export function patchAndroid(root) {
   const variablesGradle = path.join(root, 'variables.gradle')
   if (fs.existsSync(variablesGradle)) {
     const vars = fs.readFileSync(variablesGradle, 'utf8')
-    let next = forceAndroidSdkCompatibility(vars)
-    if (/ndkVersion\s*=/.test(next)) {
-      next = next.replace(/ndkVersion\s*=\s*["'][^"']+["']/g, `ndkVersion = '${LOVABLE_NDK_VERSION}'`)
-    } else {
-      next += `${next.endsWith('\n') || next === '' ? '' : '\n'}ndkVersion = '${LOVABLE_NDK_VERSION}'\n`
-    }
+    let next = forceVariablesGradleNdk(forceAndroidSdkCompatibility(vars))
     if (next !== vars) {
       fs.writeFileSync(variablesGradle, next)
-      log('Locked android/variables.gradle to compileSdk 35, targetSdk 35, minSdk 22, and NDK r28+')
+      log('Locked android/variables.gradle to compileSdk 35, targetSdk 35, minSdk 22, and safe NDK r28+ extra property')
     }
   }
 
