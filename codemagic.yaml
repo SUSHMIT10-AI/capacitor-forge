@@ -1209,7 +1209,7 @@ workflows:
               out = []
               for line in lines:
                   in_ext = ext_depth > 0
-                  m = re.match(r'^(\s*)(?:ext\.)?ndkVersion\s*=\s*["\'][^"\']+["\']\s*(\r?\n)?$', line)
+                  m = re.match(r'^(\s*)(?:ext\.)?ndkVersion\s*=\s*["\'][^"\']+["\'][^\S\r\n]*(\r?\n)?$', line)
                   if m:
                       patched = True
                       out.append(f"{m.group(1)}{'ndkVersion' if in_ext else 'ext.ndkVersion'} = '{ndk}'{m.group(2) or ''}")
@@ -1797,7 +1797,7 @@ workflows:
               out = []
               for line in lines:
                   in_ext = ext_depth > 0
-                  m = re.match(r'^(\s*)(?:ext\.)?ndkVersion\s*=\s*["\'][^"\']+["\']\s*(\r?\n)?$', line)
+                  m = re.match(r'^(\s*)(?:ext\.)?ndkVersion\s*=\s*["\'][^"\']+["\'][^\S\r\n]*(\r?\n)?$', line)
                   if m:
                       patched = True
                       out.append(f"{m.group(1)}{'ndkVersion' if in_ext else 'ext.ndkVersion'} = '{ndk}'{m.group(2) or ''}")

@@ -321,7 +321,7 @@ function forceVariablesGradleNdk(source) {
   let found = false
   const next = lines.map((line) => {
     const inExtBlock = extDepth > 0
-    const match = line.match(/^(\s*)(?:ext\.)?ndkVersion\s*=\s*["'][^"']+["']\s*(\r?\n)?$/)
+    const match = line.match(/^(\s*)(?:ext\.)?ndkVersion\s*=\s*["'][^"']+["'][^\S\r\n]*(\r?\n)?$/)
     let out = line
     if (match) {
       found = true
