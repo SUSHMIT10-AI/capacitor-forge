@@ -549,16 +549,18 @@ workflows:
                   text,
                   count=1,
               )
-          # AD_ID must match the actual ads configuration: add it only when a
-          # real AdMob App ID is present, and remove stale positive/remove nodes
-          # otherwise so Play Console policy checks match the uploaded artifact.
+          # Google Play requires the com.google.android.gms.permission.AD_ID
+          # permission for any app targeting Android 13+ that can display ads
+          # (native AdMob or web ads inside the WebView). Always declare it and
+          # strip any stale/duplicate or tools:node="remove" entries first so
+          # the merged manifest ends up with a single positive declaration.
           text = _re.sub(
               r'\n\s*<uses-permission[^>]*android:name="com\.google\.android\.gms\.permission\.AD_ID"[^>]*(?:/>|>\s*</uses-permission>)',
               '',
               text,
           )
-          if os.environ.get("ADMOB_APP_ID", "").strip():
-              add("com.google.android.gms.permission.AD_ID")
+          add("com.google.android.gms.permission.AD_ID")
+
           marker = "\n    <!-- Optional native permissions are inserted by codemagic.yaml only when enabled. -->"
           block = marker + ("\n" + "\n".join(permissions) if permissions else "")
           if marker not in text:
