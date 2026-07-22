@@ -316,20 +316,28 @@ function forceNdk28(source, isKts = false) {
 }
 
 function forceVariablesGradleNdk(source) {
-  const safeLine = `ext.ndkVersion = '${LOVABLE_NDK_VERSION}'`
-  let next = source
-    .replace(/(^|\n)\s*ndkVersion\s*=\s*["'][^"']+["']\s*(?=\n|$)/g, `$1${safeLine}`)
-    .replace(/(^|\n)\s*ext\.ndkVersion\s*=\s*["'][^"']+["']\s*(?=\n|$)/g, `$1${safeLine}`)
+  const lines = source.split(/(?<=\n)/)
+  let extDepth = 0
+  let found = false
+  const next = lines.map((line) => {
+    const inExtBlock = extDepth > 0
+    const match = line.match(/^(\s*)(?:ext\.)?ndkVersion\s*=\s*["'][^"']+["']\s*(\r?\n)?$/)
+    let out = line
+    if (match) {
+      found = true
+      out = inExtBlock
+        ? `${match[1]}ndkVersion = '${LOVABLE_NDK_VERSION}'${match[2] ?? ''}`
+        : `${match[1]}ext.ndkVersion = '${LOVABLE_NDK_VERSION}'${match[2] ?? ''}`
+    }
 
-  if (/\bndkVersion\s*=/.test(next) || /\bext\.ndkVersion\s*=/.test(next)) return next
+    if (/^\s*ext\s*\{/.test(line)) extDepth += (line.match(/\{/g) || []).length
+    if (extDepth > 0) extDepth -= (line.match(/\}/g) || []).length
+    if (extDepth < 0) extDepth = 0
+    return out
+  }).join('')
 
-  const extBlock = next.match(/ext\s*\{[\s\S]*?\n\}/)
-  if (extBlock) {
-    const patchedBlock = extBlock[0].replace(/\n\}/, `\n    ndkVersion = '${LOVABLE_NDK_VERSION}'\n}`)
-    return next.replace(extBlock[0], patchedBlock)
-  }
-
-  return `${next.endsWith('\n') || next === '' ? next : `${next}\n`}${safeLine}\n`
+  if (found) return next
+  return `${next.endsWith('\n') || next === '' ? next : `${next}\n`}ext.ndkVersion = '${LOVABLE_NDK_VERSION}'\n`
 }
 
 /* ---------- Supported Capacitor plugin catalog ----------
