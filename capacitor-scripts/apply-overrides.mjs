@@ -315,6 +315,31 @@ function forceNdk28(source, isKts = false) {
   return next
 }
 
+function forceVariablesGradleNdk(source) {
+  const lines = source.split(/(?<=\n)/)
+  let extDepth = 0
+  let found = false
+  const next = lines.map((line) => {
+    const inExtBlock = extDepth > 0
+    const match = line.match(/^(\s*)(?:ext\.)?ndkVersion\s*=\s*["'][^"']+["'][^\S\r\n]*(\r?\n)?$/)
+    let out = line
+    if (match) {
+      found = true
+      out = inExtBlock
+        ? `${match[1]}ndkVersion = '${LOVABLE_NDK_VERSION}'${match[2] ?? ''}`
+        : `${match[1]}ext.ndkVersion = '${LOVABLE_NDK_VERSION}'${match[2] ?? ''}`
+    }
+
+    if (/^\s*ext\s*\{/.test(line)) extDepth += (line.match(/\{/g) || []).length
+    if (extDepth > 0) extDepth -= (line.match(/\}/g) || []).length
+    if (extDepth < 0) extDepth = 0
+    return out
+  }).join('')
+
+  if (found) return next
+  return `${next.endsWith('\n') || next === '' ? next : `${next}\n`}ext.ndkVersion = '${LOVABLE_NDK_VERSION}'\n`
+}
+
 /* ---------- Supported Capacitor plugin catalog ----------
  * Plugins listed here will be auto-installed when:
  *   a) the user's package.json already references them (detected)
@@ -761,15 +786,10 @@ export function patchAndroid(root) {
   const variablesGradle = path.join(root, 'variables.gradle')
   if (fs.existsSync(variablesGradle)) {
     const vars = fs.readFileSync(variablesGradle, 'utf8')
-    let next = forceAndroidSdkCompatibility(vars)
-    if (/ndkVersion\s*=/.test(next)) {
-      next = next.replace(/ndkVersion\s*=\s*["'][^"']+["']/g, `ndkVersion = '${LOVABLE_NDK_VERSION}'`)
-    } else {
-      next += `${next.endsWith('\n') || next === '' ? '' : '\n'}ndkVersion = '${LOVABLE_NDK_VERSION}'\n`
-    }
+    let next = forceVariablesGradleNdk(forceAndroidSdkCompatibility(vars))
     if (next !== vars) {
       fs.writeFileSync(variablesGradle, next)
-      log('Locked android/variables.gradle to compileSdk 35, targetSdk 35, minSdk 22, and NDK r28+')
+      log('Locked android/variables.gradle to compileSdk 35, targetSdk 35, minSdk 22, and safe NDK r28+ extra property')
     }
   }
 

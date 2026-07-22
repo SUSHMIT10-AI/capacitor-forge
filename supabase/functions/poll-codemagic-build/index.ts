@@ -308,6 +308,12 @@ function explainKnownFailure(detail: string | null): string | null {
       detail,
     ].join('\n\n')
   }
+  if (normalized.includes("could not set unknown property 'ndkversion'") && normalized.includes('variables.gradle')) {
+    return [
+      'Codemagic used a workflow that wrote ndkVersion directly into android/variables.gradle. Gradle rejects that root-level property. The builder now writes it as a safe extra property and still forces NDK r28+ for 16 KB page compatibility.',
+      detail,
+    ].join('\n\n')
+  }
   return detail
 }
 

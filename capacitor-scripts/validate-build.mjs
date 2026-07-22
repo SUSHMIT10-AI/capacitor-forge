@@ -107,7 +107,7 @@ for (const gradleFile of [rootBuildGradle, buildGradle, buildGradleKts, settings
       const match = contents.match(re)
       if (match && Number(match[1]) !== expected) fail(`${label} has ${name} ${match[1]}; expected ${expected}`)
     }
-    const ndkMatch = contents.match(/ndkVersion\s*=\s*['"]([^'"]+)['"]/) || contents.match(/ndkVersion\s+['"]([^'"]+)['"]/) 
+    const ndkMatch = contents.match(/(?:ext\.)?ndkVersion\s*=\s*['"]([^'"]+)['"]/) || contents.match(/ndkVersion\s+['"]([^'"]+)['"]/) 
     if (!ndkMatch) fail(`${label} is missing ndkVersion; native source builds may use an older NDK and fail Play 16 KB checks`)
     else if (!/^(28|29)\./.test(ndkMatch[1])) fail(`${label} has ndkVersion ${ndkMatch[1]}; Play 16 KB compatibility requires NDK r28+`)
   }

@@ -1205,10 +1205,24 @@ workflows:
           if variables.exists():
               vars_text = variables.read_text(encoding='utf-8')
               ndk = os.environ.get('LOVABLE_NDK_VERSION', '28.0.13004108')
-              if re.search(r'ndkVersion\s*=', vars_text):
-                  vars_text = re.sub(r'ndkVersion\s*=\s*["\'][^"\']+["\']', f"ndkVersion = '{ndk}'", vars_text)
-              else:
-                  vars_text += ('\n' if vars_text and not vars_text.endswith('\n') else '') + f"ndkVersion = '{ndk}'\n"
+              lines, patched, ext_depth = vars_text.splitlines(True), False, 0
+              out = []
+              for line in lines:
+                  in_ext = ext_depth > 0
+                  m = re.match(r'^(\s*)(?:ext\.)?ndkVersion\s*=\s*["\'][^"\']+["\'][^\S\r\n]*(\r?\n)?$', line)
+                  if m:
+                      patched = True
+                      out.append(f"{m.group(1)}{'ndkVersion' if in_ext else 'ext.ndkVersion'} = '{ndk}'{m.group(2) or ''}")
+                  else:
+                      out.append(line)
+                  if re.match(r'^\s*ext\s*\{', line):
+                      ext_depth += line.count('{')
+                  if ext_depth > 0:
+                      ext_depth -= line.count('}')
+                      ext_depth = max(ext_depth, 0)
+              vars_text = ''.join(out)
+              if not patched:
+                  vars_text += ('\n' if vars_text and not vars_text.endswith('\n') else '') + f"ext.ndkVersion = '{ndk}'\n"
               variables.write_text(vars_text, encoding='utf-8')
           if gradle_props.exists():
               props = gradle_props.read_text(encoding='utf-8')
@@ -1779,10 +1793,24 @@ workflows:
           if variables.exists():
               vars_text = variables.read_text(encoding='utf-8')
               ndk = os.environ.get('LOVABLE_NDK_VERSION', '28.0.13004108')
-              if re.search(r'ndkVersion\s*=', vars_text):
-                  vars_text = re.sub(r'ndkVersion\s*=\s*["\'][^"\']+["\']', f"ndkVersion = '{ndk}'", vars_text)
-              else:
-                  vars_text += ('\n' if vars_text and not vars_text.endswith('\n') else '') + f"ndkVersion = '{ndk}'\n"
+              lines, patched, ext_depth = vars_text.splitlines(True), False, 0
+              out = []
+              for line in lines:
+                  in_ext = ext_depth > 0
+                  m = re.match(r'^(\s*)(?:ext\.)?ndkVersion\s*=\s*["\'][^"\']+["\'][^\S\r\n]*(\r?\n)?$', line)
+                  if m:
+                      patched = True
+                      out.append(f"{m.group(1)}{'ndkVersion' if in_ext else 'ext.ndkVersion'} = '{ndk}'{m.group(2) or ''}")
+                  else:
+                      out.append(line)
+                  if re.match(r'^\s*ext\s*\{', line):
+                      ext_depth += line.count('{')
+                  if ext_depth > 0:
+                      ext_depth -= line.count('}')
+                      ext_depth = max(ext_depth, 0)
+              vars_text = ''.join(out)
+              if not patched:
+                  vars_text += ('\n' if vars_text and not vars_text.endswith('\n') else '') + f"ext.ndkVersion = '{ndk}'\n"
               variables.write_text(vars_text, encoding='utf-8')
 
           props = gradle_props.read_text(encoding='utf-8') if gradle_props.exists() else ''
