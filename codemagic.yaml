@@ -746,46 +746,30 @@ workflows:
           BUILD_TOOLS_DIR="$(ls -d $ANDROID_SDK_ROOT/build-tools/*/ | sort -V | tail -n 1)"
           AAPT2="${BUILD_TOOLS_DIR}aapt2"
 
-          ADS_ENABLED="false"
-          if [ -n "${ADMOB_APP_ID:-}" ]; then ADS_ENABLED="true"; fi
+          ADS_ENABLED="true"
 
           check_ad_id() {
             local file="$1"
             local kind="$2"
-            echo "Inspecting $kind advertising ID permission: $file (ads_enabled=$ADS_ENABLED)"
+            echo "Inspecting $kind advertising ID permission: $file"
             if [ "$kind" = "AAB" ]; then
               curl -fsSL -o /tmp/bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
               local manifest
               manifest="$(java -jar /tmp/bundletool.jar dump manifest --bundle="$file")"
-              if [ "$ADS_ENABLED" = "true" ]; then
-                echo "$manifest" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null || {
-                  echo "❌ AAB is missing com.google.android.gms.permission.AD_ID even though AdMob is configured."
-                  exit 1
-                }
-                echo "✅ $kind contains com.google.android.gms.permission.AD_ID for AdMob."
-              else
-                if echo "$manifest" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null; then
-                  echo "❌ AAB declares com.google.android.gms.permission.AD_ID but AdMob is not configured. Remove the permission or provide ADMOB_APP_ID."
-                  exit 1
-                fi
-                echo "✅ $kind does not declare AD_ID because ads are disabled."
-              fi
+              echo "$manifest" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null || {
+                echo "❌ AAB is missing com.google.android.gms.permission.AD_ID."
+                exit 1
+              }
+              echo "✅ $kind contains com.google.android.gms.permission.AD_ID."
             else
-              if [ "$ADS_ENABLED" = "true" ]; then
-                "$AAPT2" dump permissions "$file" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null || {
-                  echo "❌ APK is missing com.google.android.gms.permission.AD_ID even though AdMob is configured."
-                  exit 1
-                }
-                echo "✅ $kind contains com.google.android.gms.permission.AD_ID for AdMob."
-              else
-                if "$AAPT2" dump permissions "$file" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null; then
-                  echo "❌ APK declares com.google.android.gms.permission.AD_ID but AdMob is not configured."
-                  exit 1
-                fi
-                echo "✅ $kind does not declare AD_ID because ads are disabled."
-              fi
+              "$AAPT2" dump permissions "$file" | grep -F 'com.google.android.gms.permission.AD_ID' >/dev/null || {
+                echo "❌ APK is missing com.google.android.gms.permission.AD_ID."
+                exit 1
+              }
+              echo "✅ $kind contains com.google.android.gms.permission.AD_ID."
             fi
           }
+
 
           FOUND=0
           if [ -n "$AAB_FILE" ]; then FOUND=1; check_ad_id "$AAB_FILE" "AAB"; fi
