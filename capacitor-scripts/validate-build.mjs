@@ -140,8 +140,8 @@ if (fs.existsSync(manifestPath)) {
   const m = fs.readFileSync(manifestPath, 'utf8')
   if (!/android\.permission\.INTERNET/.test(m)) fail('AndroidManifest missing INTERNET permission')
   const hasAdIdPermission = m.includes('com.google.android.gms.permission.AD_ID') && !/com\.google\.android\.gms\.permission\.AD_ID["'][^>]*tools:node=["']remove["']/.test(m)
-  if (ADMOB_APP_ID && !hasAdIdPermission) fail('AndroidManifest must contain a positive com.google.android.gms.permission.AD_ID permission when AdMob is configured')
-  if (!ADMOB_APP_ID && hasAdIdPermission) fail('AndroidManifest declares AD_ID but ADMOB_APP_ID is empty; configure AdMob or remove the permission')
+  if (!hasAdIdPermission) fail('AndroidManifest must contain a positive com.google.android.gms.permission.AD_ID permission for Play Console policy compliance')
+
   if (ADMOB_APP_ID && !m.includes(ADMOB_APP_ID))
     fail(`AndroidManifest missing AdMob APPLICATION_ID (${ADMOB_APP_ID})`)
   if (!/android:extractNativeLibs\s*=\s*["']false["']/.test(m)) {
