@@ -133,18 +133,9 @@ Deno.serve(async (req) => {
             .eq('id', build_id)
           return json({ status: 'failed', error: msg })
         }
-        const adsEnabled = build.enable_admob === true || Boolean(String(build.admob_app_id ?? '').trim())
         const aabDeclaresAdId = getAabDeclaresAdId(aabBlob)
-        if (adsEnabled && !aabDeclaresAdId) {
-          const msg = 'Generated AAB is missing com.google.android.gms.permission.AD_ID even though AdMob is configured. Do not upload this AAB to Play Console; re-run after the latest Ad ID permission workflow is used.'
-          await supabase
-            .from('build_configs')
-            .update({ status: 'failed', error_message: msg })
-            .eq('id', build_id)
-          return json({ status: 'failed', error: msg })
-        }
-        if (!adsEnabled && aabDeclaresAdId) {
-          const msg = 'Generated AAB declares com.google.android.gms.permission.AD_ID but AdMob is not configured. Configure a real AdMob App ID or rebuild without the permission before uploading to Play Console.'
+        if (!aabDeclaresAdId) {
+          const msg = 'Generated AAB is missing com.google.android.gms.permission.AD_ID. Do not upload this AAB to Play Console; re-run after the latest Ad ID permission workflow is used.'
           await supabase
             .from('build_configs')
             .update({ status: 'failed', error_message: msg })
