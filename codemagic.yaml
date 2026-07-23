@@ -566,6 +566,22 @@ workflows:
           if marker not in text:
               raise SystemExit("Optional permission marker missing from AndroidManifest.xml")
           text = text.replace(marker, block, 1)
+
+          # CRITICAL: When play-services-ads is compiled in (ADMOB_APP_ID set),
+          # the Google Mobile Ads SDK crashes the app on launch with an
+          # IllegalStateException unless com.google.android.gms.ads.APPLICATION_ID
+          # meta-data is declared inside <application>. Missing meta-data is
+          # what caused the previous AAB to close/return to launcher on open.
+          admob_app_id = os.environ.get("ADMOB_APP_ID", "").strip()
+          if admob_app_id:
+              text = _re.sub(
+                  r'\n\s*<meta-data\s+android:name="com\.google\.android\.gms\.ads\.APPLICATION_ID"[^/]*/>',
+                  '',
+                  text,
+              )
+              meta = f'\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="{admob_app_id}" />'
+              text = _re.sub(r'(\n\s*</application>)', meta + r'\1', text, count=1)
+              print(f"Injected AdMob APPLICATION_ID={admob_app_id}")
           open(manifest_path, "w", encoding="utf-8").write(text)
           print("Enabled manifest permissions:")
           print("\n".join(permissions) if permissions else "  none")
