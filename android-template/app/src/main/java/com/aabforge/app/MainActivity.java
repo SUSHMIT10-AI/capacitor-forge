@@ -768,6 +768,27 @@ public class MainActivity extends AppCompatActivity {
           "})();";
     }
 
+    /**
+     * Minimal window.AdMobBridge placeholder for the WebView shell, where no
+     * native AdMob SDK is linked. Every method rejects with a clear message and
+     * isNative() returns false, so ad code degrades instead of throwing on
+     * `Cannot read properties of undefined`. Deliberately does NOT set
+     * __installed, so the real Capacitor AdMob bridge replaces it when present.
+     */
+    private String admobShimScript() {
+        return
+          "(function(){try{" +
+            "if(window.AdMobBridge)return;" +
+            "var fail=function(m){return function(){return Promise.reject(new Error('[AdMobBridge] '+m+' unavailable: no native AdMob in this build.'));};};" +
+            "var B={__shim:true,isNative:function(){return false;},isReady:function(){return false;}," +
+              "on:function(n,cb){var h=function(e){cb(e.detail);};window.addEventListener('admob:'+n,h);return function(){window.removeEventListener('admob:'+n,h);};}};" +
+            "['initialize','requestConsentInfo','showConsentForm','resetConsentInfo','loadBanner','showBanner','hideBanner','resumeBanner','removeBanner'," +
+             "'loadInterstitial','showInterstitial','loadRewarded','showRewarded','loadRewardedInterstitial','showRewardedInterstitial','loadAppOpen','showAppOpen']" +
+             ".forEach(function(m){B[m]=fail(m);});" +
+            "window.AdMobBridge=B;" +
+          "}catch(e){}})();";
+    }
+
     private String capacitorBootScript() {
         // (unchanged)
         return
