@@ -17,6 +17,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Base64;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -51,6 +52,7 @@ import java.util.Collections;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
+    private static final String TAG = "AABForgeMain";
     private WebView webView;
     private SwipeRefreshLayout swipe;
     private BillingBridge billingBridge;
@@ -191,7 +193,13 @@ public class MainActivity extends AppCompatActivity {
         s.setSupportZoom(BuildConfig.ALLOW_ZOOM);
         webView.setInitialScale(100);
 
-        injectDocumentStartFeatureLocks();
+        try {
+            injectDocumentStartFeatureLocks();
+        } catch (Throwable t) {
+            // Document-start injection is an enhancement. Some vendor WebView builds
+            // report support but throw at runtime; never let that close the app on launch.
+            Log.w(TAG, "Document-start WebView bootstrap disabled after runtime failure", t);
+        }
 
         s.setGeolocationEnabled(BuildConfig.ENABLE_GEOLOCATION);
 
@@ -433,16 +441,28 @@ public class MainActivity extends AppCompatActivity {
 
     private void wireBridges() {
         // Always-on native bridge for clipboard / share / vibrate / toast etc.
-        nativeBridge = new NativeBridge(this, webView);
-        webView.addJavascriptInterface(nativeBridge, "AndroidNative");
+        try {
+            nativeBridge = new NativeBridge(this, webView);
+            webView.addJavascriptInterface(nativeBridge, "AndroidNative");
+        } catch (Throwable t) {
+            Log.w(TAG, "AndroidNative bridge disabled after runtime failure", t);
+        }
 
         if (BuildConfig.ENABLE_BILLING) {
-            billingBridge = new BillingBridge(this, webView);
-            webView.addJavascriptInterface(billingBridge, "AndroidBilling");
+            try {
+                billingBridge = new BillingBridge(this, webView);
+                webView.addJavascriptInterface(billingBridge, "AndroidBilling");
+            } catch (Throwable t) {
+                Log.w(TAG, "AndroidBilling bridge disabled after runtime failure", t);
+            }
 
             // Canonical Play Billing v6 plugin (window.PlayBilling.*)
-            playBillingPlugin = new PlayBillingPlugin(this, webView);
-            webView.addJavascriptInterface(playBillingPlugin, "PlayBillingNative");
+            try {
+                playBillingPlugin = new PlayBillingPlugin(this, webView);
+                webView.addJavascriptInterface(playBillingPlugin, "PlayBillingNative");
+            } catch (Throwable t) {
+                Log.w(TAG, "PlayBillingNative bridge disabled after runtime failure", t);
+            }
         }
     }
 
@@ -494,8 +514,15 @@ public class MainActivity extends AppCompatActivity {
         if (BuildConfig.ENABLE_OFFLINE_PAGE && !isNetworkAvailable()) {
             showOfflinePage();
         } else {
-            webView.loadUrl(BuildConfig.APP_URL);
+            webView.loadUrl(normalizedInitialUrl());
         }
+    }
+
+    private String normalizedInitialUrl() {
+        String url = BuildConfig.APP_URL == null ? "" : BuildConfig.APP_URL.trim();
+        if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("file://")) return url;
+        if (!url.isEmpty() && url.contains(".")) return "https://" + url;
+        return "about:blank";
     }
 
     private void showOfflinePage() {
