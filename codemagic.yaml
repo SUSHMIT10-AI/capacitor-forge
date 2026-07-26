@@ -1308,7 +1308,7 @@ workflows:
                   r'\n\s*implementation\s+project\(["\']:capacitor-community-admob["\']\)[^\n]*',
                   r'\n\s*implementation\s+["\']com\.google\.android\.gms:play-services-ads:[^"\'\n]+["\'][^\n]*',
               ]
-              for file in [root / 'settings.gradle', root / 'settings.gradle.kts', root / 'capacitor.settings.gradle', root / 'capacitor.settings.gradle.kts', root / 'app/build.gradle', root / 'app/build.gradle.kts']:
+              for file in [root / 'settings.gradle', root / 'settings.gradle.kts', root / 'capacitor.settings.gradle', root / 'capacitor.settings.gradle.kts', root / 'capacitor.build.gradle', root / 'capacitor.build.gradle.kts', root / 'app/build.gradle', root / 'app/build.gradle.kts']:
                   if not file.exists():
                       continue
                   text = file.read_text(encoding='utf-8')

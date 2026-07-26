@@ -35,6 +35,8 @@ const buildGradleKts = path.join(appDir, 'build.gradle.kts')
 const rootBuildGradle = path.join(androidDir, 'build.gradle')
 const settingsGradle = path.join(androidDir, 'settings.gradle')
 const variablesGradle = path.join(androidDir, 'variables.gradle')
+const capacitorBuildGradle = path.join(androidDir, 'capacitor.build.gradle')
+const capacitorBuildGradleKts = path.join(androidDir, 'capacitor.build.gradle.kts')
 const gradleProps = path.join(androidDir, 'gradle.properties')
 const capConfigJson = path.join(PROJECT_DIR, 'capacitor.config.json')
 const capConfigTs = path.join(PROJECT_DIR, 'capacitor.config.ts')
@@ -110,6 +112,17 @@ for (const gradleFile of [rootBuildGradle, buildGradle, buildGradleKts, settings
     const ndkMatch = contents.match(/(?:ext\.)?ndkVersion\s*=\s*['"]([^'"]+)['"]/) || contents.match(/ndkVersion\s+['"]([^'"]+)['"]/) 
     if (!ndkMatch) fail(`${label} is missing ndkVersion; native source builds may use an older NDK and fail Play 16 KB checks`)
     else if (!/^(28|29)\./.test(ndkMatch[1])) fail(`${label} has ndkVersion ${ndkMatch[1]}; Play 16 KB compatibility requires NDK r28+`)
+  }
+}
+
+if (!ADMOB_APP_ID) {
+  for (const gradleFile of [buildGradle, buildGradleKts, settingsGradle, capacitorBuildGradle, capacitorBuildGradleKts]) {
+    if (!fs.existsSync(gradleFile)) continue
+    const contents = fs.readFileSync(gradleFile, 'utf8')
+    const label = path.relative(PROJECT_DIR, gradleFile)
+    if (/capacitor-community-admob|play-services-ads/.test(contents)) {
+      fail(`${label} still wires native AdMob while no real AdMob App ID is configured; this can crash on launch because Mobile Ads requires APPLICATION_ID metadata.`)
+    }
   }
 }
 

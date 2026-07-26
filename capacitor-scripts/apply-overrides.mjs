@@ -400,6 +400,8 @@ function stripDisabledNativeAdMob(root) {
     path.join(root, 'settings.gradle.kts'),
     path.join(root, 'capacitor.settings.gradle'),
     path.join(root, 'capacitor.settings.gradle.kts'),
+    path.join(root, 'capacitor.build.gradle'),
+    path.join(root, 'capacitor.build.gradle.kts'),
     path.join(root, 'app', 'build.gradle'),
     path.join(root, 'app', 'build.gradle.kts'),
   ]) {
