@@ -1527,6 +1527,10 @@ workflows:
             done
           done
           [ "$MISSING" = "0" ] || exit 1
+          # Edge-perfect finish: bake the artwork's own border color behind the
+          # icon so launcher masks never reveal a colored ring/lines at the edges.
+          python3 -c "import PIL" 2>/dev/null || python3 -m pip install --quiet --disable-pip-version-check pillow || true
+          python3 "$CM_BUILD_DIR/capacitor-scripts/finalize-launcher-icons.py" "$RES_DIR" /tmp/cap_app_icon_norm.png /tmp/cap_app_icon_src || true
           echo "✅ User-uploaded icon installed into all Capacitor mipmap buckets."
       - name: Honor ENABLE_NATIVE_SPLASH toggle (Capacitor)
         script: |
