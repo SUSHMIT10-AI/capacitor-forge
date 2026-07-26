@@ -380,6 +380,11 @@ public class MainActivity extends AppCompatActivity {
         if (BuildConfig.ENABLE_CAPACITOR) {
             script.append(capacitorBootScript());
         }
+        // Always expose a window.AdMobBridge placeholder so web apps that call it can
+        // feature-detect (isNative()) instead of crashing on `undefined`. The real
+        // bridge (capacitor-scripts/web-bridge/admob.js) sets __installed and wins.
+        script.append(admobShimScript());
+
         script.append("try{console.log('[AABforge] Platform:', (window.Capacitor&&window.Capacitor.getPlatform&&window.Capacitor.getPlatform())||'web', 'billing=" + (BuildConfig.ENABLE_BILLING?"on":"off") + " capacitor=" + (BuildConfig.ENABLE_CAPACITOR?"on":"off") + "');}catch(e){}");
         if (!BuildConfig.ALLOW_ZOOM) script.append(zoomLockScript());
         if (!BuildConfig.ENABLE_CLIPBOARD) script.append(clipboardLockScript());
@@ -761,6 +766,27 @@ public class MainActivity extends AppCompatActivity {
             "try{var applyCss=function(){if(document.getElementById('aabforge-clipboard-lock'))return;var s=document.createElement('style');s.id='aabforge-clipboard-lock';s.textContent='*{-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;}input,textarea,[contenteditable=\"true\"]{-webkit-user-select:text!important;user-select:text!important;}';(document.head||document.documentElement).appendChild(s);};applyCss();document.addEventListener('DOMContentLoaded',applyCss,{once:true});try{new MutationObserver(applyCss).observe(document.documentElement,{childList:true,subtree:true});}catch(e){}}catch(e){}" +
             "try{document.addEventListener('copy',function(e){e.preventDefault();e.stopImmediatePropagation();},true);document.addEventListener('cut',function(e){e.preventDefault();e.stopImmediatePropagation();},true);}catch(e){}" +
           "})();";
+    }
+
+    /**
+     * Minimal window.AdMobBridge placeholder for the WebView shell, where no
+     * native AdMob SDK is linked. Every method rejects with a clear message and
+     * isNative() returns false, so ad code degrades instead of throwing on
+     * `Cannot read properties of undefined`. Deliberately does NOT set
+     * __installed, so the real Capacitor AdMob bridge replaces it when present.
+     */
+    private String admobShimScript() {
+        return
+          "(function(){try{" +
+            "if(window.AdMobBridge)return;" +
+            "var fail=function(m){return function(){return Promise.reject(new Error('[AdMobBridge] '+m+' unavailable: no native AdMob in this build.'));};};" +
+            "var B={__shim:true,isNative:function(){return false;},isReady:function(){return false;}," +
+              "on:function(n,cb){var h=function(e){cb(e.detail);};window.addEventListener('admob:'+n,h);return function(){window.removeEventListener('admob:'+n,h);};}};" +
+            "['initialize','requestConsentInfo','showConsentForm','resetConsentInfo','loadBanner','showBanner','hideBanner','resumeBanner','removeBanner'," +
+             "'loadInterstitial','showInterstitial','loadRewarded','showRewarded','loadRewardedInterstitial','showRewardedInterstitial','loadAppOpen','showAppOpen']" +
+             ".forEach(function(m){B[m]=fail(m);});" +
+            "window.AdMobBridge=B;" +
+          "}catch(e){}})();";
     }
 
     private String capacitorBootScript() {

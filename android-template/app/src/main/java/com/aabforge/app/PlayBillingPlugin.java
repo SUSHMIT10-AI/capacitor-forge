@@ -530,35 +530,37 @@ public class PlayBillingPlugin {
     private void resolve(String callbackId, boolean value) {
         if (callbackId == null) return;
         ui.post(() -> webView.evaluateJavascript(
-            "window.PlayBilling && window.PlayBilling.__resolve && window.PlayBilling.__resolve('"
-                + callbackId + "', " + value + ");",
+            "window.PlayBilling && window.PlayBilling.__resolve && window.PlayBilling.__resolve("
+                + JSONObject.quote(callbackId) + ", " + value + ");",
             null
         ));
     }
 
     private void resolveJson(String callbackId, JSONArray arr) {
         if (callbackId == null) return;
-        final String payload = arr.toString().replace("\\", "\\\\").replace("'", "\\'");
+        // JSONObject.quote() produces a fully escaped JS string literal, so product
+        // titles containing quotes/backslashes/newlines can never break JSON.parse.
+        final String payload = JSONObject.quote(arr == null ? "[]" : arr.toString());
         ui.post(() -> webView.evaluateJavascript(
-            "window.PlayBilling && window.PlayBilling.__resolve && window.PlayBilling.__resolve('"
-                + callbackId + "', JSON.parse('" + payload + "'));",
+            "window.PlayBilling && window.PlayBilling.__resolve && window.PlayBilling.__resolve("
+                + JSONObject.quote(callbackId) + ", JSON.parse(" + payload + "));",
             null
         ));
     }
 
     private void emit(String eventName, JSONObject payload) {
-        final String json = payload.toString().replace("\\", "\\\\").replace("'", "\\'");
+        final String json = JSONObject.quote(payload == null ? "{}" : payload.toString());
         ui.post(() -> webView.evaluateJavascript(
-            "window.PlayBilling && window.PlayBilling.__emit && window.PlayBilling.__emit('"
-                + eventName + "', JSON.parse('" + json + "'));",
+            "window.PlayBilling && window.PlayBilling.__emit && window.PlayBilling.__emit("
+                + JSONObject.quote(eventName) + ", JSON.parse(" + json + "));",
             null
         ));
     }
 
     /** Surface a native error into the WebView console so JS devs can see it. */
     private void jsConsoleError(String msg) {
-        final String safe = msg == null ? "" : msg.replace("\\", "\\\\").replace("'", "\\'");
+        final String safe = JSONObject.quote(msg == null ? "" : msg);
         ui.post(() -> webView.evaluateJavascript(
-            "console.error('[PlayBillingNative] ' + '" + safe + "');", null));
+            "console.error('[PlayBillingNative] ' + " + safe + ");", null));
     }
 }

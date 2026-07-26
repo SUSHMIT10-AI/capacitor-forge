@@ -9,6 +9,11 @@
 (function () {
   if (typeof window === 'undefined') return;
   if (window.PlayBilling && window.PlayBilling.__installed) return;
+  // The native WebView shell (MainActivity.playBillingBootScript) already installs
+  // a working shim at document-start and marks it with __ready. Never replace it —
+  // doing so orphans its pending callback map and breaks purchase resolution.
+  if (window.PlayBilling && window.PlayBilling.__ready) return;
+
 
   var pending = Object.create(null);
   var listeners = Object.create(null);
