@@ -2077,6 +2077,33 @@ workflows:
             exit 1
           fi
           xargs python3 "$CM_BUILD_DIR/capacitor-scripts/verify-android-16kb.py" < "$ARTIFACT_LIST"
+      - name: Verify Capacitor APK signature (release, not debug)
+        working_directory: user-project/android
+        script: |
+          set -euo pipefail
+          APK_FILE="$(find app/build/outputs/apk/release -name '*.apk' | head -n 1 || true)"
+          if [ -z "${APK_FILE:-}" ]; then
+            echo "No APK produced (BUILD_TYPE=${BUILD_TYPE:-aab}), skipping."
+            exit 0
+          fi
+          echo "Verifying $APK_FILE"
+          BUILD_TOOLS_DIR="$(ls -d $ANDROID_SDK_ROOT/build-tools/*/ | sort -V | tail -n 1)"
+          APKSIGNER="${BUILD_TOOLS_DIR}apksigner"
+          if [ ! -x "$APKSIGNER" ]; then
+            echo "apksigner not found, skipping signature check."
+            exit 0
+          fi
+          "$APKSIGNER" verify --print-certs "$APK_FILE" > /tmp/cap_apksig.txt 2>&1 || {
+            cat /tmp/cap_apksig.txt
+            echo "❌ APK signature verification failed."
+            exit 1
+          }
+          cat /tmp/cap_apksig.txt
+          if grep -qi "CN=Android Debug" /tmp/cap_apksig.txt; then
+            echo "❌ APK is signed with the DEBUG keystore."
+            exit 1
+          fi
+          echo "✅ Capacitor APK signed in release mode."
     artifacts:
       - user-project/android/app/build/outputs/**/*.aab
       - user-project/android/app/build/outputs/**/*.apk
