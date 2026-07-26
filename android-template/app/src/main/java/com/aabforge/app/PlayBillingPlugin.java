@@ -559,8 +559,8 @@ public class PlayBillingPlugin {
 
     /** Surface a native error into the WebView console so JS devs can see it. */
     private void jsConsoleError(String msg) {
-        final String safe = msg == null ? "" : msg.replace("\\", "\\\\").replace("'", "\\'");
+        final String safe = JSONObject.quote(msg == null ? "" : msg);
         ui.post(() -> webView.evaluateJavascript(
-            "console.error('[PlayBillingNative] ' + '" + safe + "');", null));
+            "console.error('[PlayBillingNative] ' + " + safe + ");", null));
     }
 }
