@@ -408,6 +408,10 @@ workflows:
             if [ ! -s "$f" ]; then echo "❌ Missing generated resource: $f"; MISSING=1; fi
           done
           if [ "$MISSING" = "1" ]; then exit 1; fi
+          # Edge-perfect finish: bake the artwork's own border color behind the
+          # icon so launcher masks never reveal a colored ring/lines at the edges.
+          python3 -c "import PIL" 2>/dev/null || python3 -m pip install --quiet --disable-pip-version-check pillow || true
+          python3 "$CM_BUILD_DIR/capacitor-scripts/finalize-launcher-icons.py" "$RES_DIR" /tmp/app_icon_normalized.png /tmp/app_icon_src || true
           echo "✅ Launcher icons + splash icon generated and verified."
       - name: Decode release signing key
         script: |
