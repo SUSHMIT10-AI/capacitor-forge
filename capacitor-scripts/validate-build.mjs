@@ -185,6 +185,34 @@ if (fs.existsSync(capPluginsJson)) {
   warn('capacitor.plugins.json not present — run `npx cap sync android` before validation')
 }
 
+if (fs.existsSync(manifestPath)) {
+  const manifest = fs.readFileSync(manifestPath, 'utf8')
+  const launcherBlock = manifest.match(/<activity\b[\s\S]*?android\.intent\.action\.MAIN[\s\S]*?android\.intent\.category\.LAUNCHER[\s\S]*?<\/activity>/)
+  const launcherName = launcherBlock?.[0]?.match(/android:name=["']([^"']+)["']/)?.[1]
+  if (!launcherName) {
+    fail('AndroidManifest launcher activity is missing android:name')
+  } else {
+    const javaFiles = []
+    const walk = (dir) => {
+      if (!fs.existsSync(dir)) return
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, entry.name)
+        if (entry.isDirectory()) walk(p)
+        else if (/MainActivity\.(java|kt)$/.test(p)) javaFiles.push(p)
+      }
+    }
+    walk(path.join(appDir, 'src', 'main'))
+    const fqcn = javaFiles.map((file) => {
+      const source = fs.readFileSync(file, 'utf8')
+      const pkg = source.match(/^\s*package\s+([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*)\s*;?/m)?.[1]
+      return pkg ? `${pkg}.MainActivity` : ''
+    }).find(Boolean)
+    if (fqcn && launcherName !== fqcn) {
+      fail(`AndroidManifest launcher activity points to ${launcherName}, but MainActivity is ${fqcn}. This can crash immediately on app open.`)
+    }
+  }
+}
+
 if (errors.length) {
   console.error('\n[validate-build] ❌ Build validation failed:')
   for (const e of errors) console.error('  - ' + e)

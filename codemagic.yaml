@@ -1241,6 +1241,24 @@ workflows:
                   m = re.sub(r'android:extractNativeLibs="[^"]*"', 'android:extractNativeLibs="false"', m)
               else:
                   m = re.sub(r'<application\b([^>]*)>', r'<application\1 android:extractNativeLibs="false">', m, count=1)
+              fqcn = ''
+              for file in Path('android/app/src/main').rglob('MainActivity.*'):
+                  if file.suffix not in ('.java', '.kt'):
+                      continue
+                  source = file.read_text(encoding='utf-8', errors='ignore')
+                  match = re.search(r'^\s*package\s+([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*)\s*;?', source, re.M)
+                  if match:
+                      fqcn = match.group(1) + '.MainActivity'
+                      break
+              if fqcn:
+                  def patch_activity(match):
+                      block = match.group(0)
+                      if 'android.intent.action.MAIN' not in block or 'android.intent.category.LAUNCHER' not in block:
+                          return block
+                      if 'android:name=' in block:
+                          return re.sub(r'android:name=["\'][^"\']+["\']', f'android:name="{fqcn}"', block, count=1)
+                      return block.replace('<activity', f'<activity android:name="{fqcn}"', 1)
+                  m = re.sub(r'<activity\b[\s\S]*?</activity>', patch_activity, m)
               manifest.write_text(m, encoding='utf-8')
           print('✅ Android SDK locked to compileSdk 35, targetSdk 35, and minSdk 22')
           PY
@@ -1251,6 +1269,64 @@ workflows:
           npx cap sync android 2>&1 | tee /tmp/cap-sync.log
           echo "---- Detected Capacitor plugins ----"
           grep -E "Found [0-9]+ Capacitor plugin" /tmp/cap-sync.log || true
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, os, re
+
+          root = Path('android')
+          manifest_path = root / 'app/src/main/AndroidManifest.xml'
+
+          def main_activity_fqcn():
+              for file in (root / 'app/src/main').rglob('MainActivity.*'):
+                  if file.suffix not in ('.java', '.kt'):
+                      continue
+                  text = file.read_text(encoding='utf-8', errors='ignore')
+                  match = re.search(r'^\s*package\s+([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*)\s*;?', text, re.M)
+                  if match:
+                      return f'{match.group(1)}.MainActivity'
+              return ''
+
+          fqcn = main_activity_fqcn()
+          if manifest_path.exists() and fqcn:
+              manifest = manifest_path.read_text(encoding='utf-8')
+              def patch_activity(match):
+                  block = match.group(0)
+                  if 'android.intent.action.MAIN' not in block or 'android.intent.category.LAUNCHER' not in block:
+                      return block
+                  if 'android:name=' in block:
+                      return re.sub(r'android:name=["\'][^"\']+["\']', f'android:name="{fqcn}"', block, count=1)
+                  return block.replace('<activity', f'<activity android:name="{fqcn}"', 1)
+              patched = re.sub(r'<activity\b[\s\S]*?</activity>', patch_activity, manifest)
+              if patched != manifest:
+                  manifest_path.write_text(patched, encoding='utf-8')
+                  print(f'✅ Launcher activity normalized to {fqcn}')
+
+          if not os.environ.get('ADMOB_APP_ID', '').strip():
+              patterns = [
+                  r'\n\s*include\s+["\']:?capacitor-community-admob["\'][^\n]*',
+                  r'\n\s*project\(["\']:capacitor-community-admob["\']\)\.projectDir\s*=[^\n]*',
+                  r'\n\s*implementation\s+project\(["\']:capacitor-community-admob["\']\)[^\n]*',
+                  r'\n\s*implementation\s+["\']com\.google\.android\.gms:play-services-ads:[^"\'\n]+["\'][^\n]*',
+              ]
+              for file in [root / 'settings.gradle', root / 'settings.gradle.kts', root / 'capacitor.settings.gradle', root / 'capacitor.settings.gradle.kts', root / 'app/build.gradle', root / 'app/build.gradle.kts']:
+                  if not file.exists():
+                      continue
+                  text = file.read_text(encoding='utf-8')
+                  patched = text
+                  for pattern in patterns:
+                      patched = re.sub(pattern, '', patched)
+                  if patched != text:
+                      file.write_text(patched, encoding='utf-8')
+                      print(f'✅ Removed disabled native AdMob wiring from {file}')
+              plugins_json = root / 'app/src/main/assets/capacitor.plugins.json'
+              if plugins_json.exists():
+                  plugins = json.loads(plugins_json.read_text(encoding='utf-8'))
+                  if isinstance(plugins, list):
+                      filtered = [p for p in plugins if 'admob' not in json.dumps(p).lower()]
+                      if len(filtered) != len(plugins):
+                          plugins_json.write_text(json.dumps(filtered, indent=2) + '\n', encoding='utf-8')
+                          print('✅ Removed disabled AdMob plugin registration')
+          PY
           grep -E "^\s+@[^@]+@" /tmp/cap-sync.log || true
       - name: Install user launcher icon (Capacitor)
         script: |
@@ -1828,6 +1904,24 @@ workflows:
                   m = re.sub(r'android:extractNativeLibs="[^"]*"', 'android:extractNativeLibs="false"', m)
               else:
                   m = re.sub(r'<application\b([^>]*)>', r'<application\1 android:extractNativeLibs="false">', m, count=1)
+              fqcn = ''
+              for file in Path('app/src/main').rglob('MainActivity.*'):
+                  if file.suffix not in ('.java', '.kt'):
+                      continue
+                  source = file.read_text(encoding='utf-8', errors='ignore')
+                  match = re.search(r'^\s*package\s+([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*)\s*;?', source, re.M)
+                  if match:
+                      fqcn = match.group(1) + '.MainActivity'
+                      break
+              if fqcn:
+                  def patch_activity(match):
+                      block = match.group(0)
+                      if 'android.intent.action.MAIN' not in block or 'android.intent.category.LAUNCHER' not in block:
+                          return block
+                      if 'android:name=' in block:
+                          return re.sub(r'android:name=["\'][^"\']+["\']', f'android:name="{fqcn}"', block, count=1)
+                      return block.replace('<activity', f'<activity android:name="{fqcn}"', 1)
+                  m = re.sub(r'<activity\b[\s\S]*?</activity>', patch_activity, m)
               manifest.write_text(m, encoding='utf-8')
 
           app_text = app.read_text(encoding='utf-8')
@@ -1844,6 +1938,20 @@ workflows:
               raise SystemExit('❌ app build.gradle must set jniLibs.useLegacyPackaging=false for 16 KB page-size compatibility')
           if 'android.bundle.enableUncompressedNativeLibs=true' not in gradle_props.read_text(encoding='utf-8'):
               raise SystemExit('❌ gradle.properties must set android.bundle.enableUncompressedNativeLibs=true for AAB PAGE_ALIGNMENT_16K')
+          manifest_text = manifest.read_text(encoding='utf-8') if manifest.exists() else ''
+          launcher = re.search(r'<activity\b[\s\S]*?android\.intent\.action\.MAIN[\s\S]*?android\.intent\.category\.LAUNCHER[\s\S]*?</activity>', manifest_text)
+          launcher_name = re.search(r'android:name=["\']([^"\']+)["\']', launcher.group(0)).group(1) if launcher and re.search(r'android:name=["\']([^"\']+)["\']', launcher.group(0)) else ''
+          fqcn = ''
+          for file in Path('app/src/main').rglob('MainActivity.*'):
+              if file.suffix not in ('.java', '.kt'):
+                  continue
+              source = file.read_text(encoding='utf-8', errors='ignore')
+              match = re.search(r'^\s*package\s+([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*)\s*;?', source, re.M)
+              if match:
+                  fqcn = match.group(1) + '.MainActivity'
+                  break
+          if fqcn and launcher_name != fqcn:
+              raise SystemExit(f'❌ Launcher activity is {launcher_name or "missing"}, but MainActivity is {fqcn}. This AAB would crash/close immediately on launch.')
           print('✅ Final Android SDK + 16 KB packaging check passed')
           PY
           chmod +x ./gradlew
