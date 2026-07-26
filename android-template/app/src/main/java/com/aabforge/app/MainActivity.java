@@ -380,6 +380,11 @@ public class MainActivity extends AppCompatActivity {
         if (BuildConfig.ENABLE_CAPACITOR) {
             script.append(capacitorBootScript());
         }
+        // Always expose a window.AdMobBridge placeholder so web apps that call it can
+        // feature-detect (isNative()) instead of crashing on `undefined`. The real
+        // bridge (capacitor-scripts/web-bridge/admob.js) sets __installed and wins.
+        script.append(admobShimScript());
+
         script.append("try{console.log('[AABforge] Platform:', (window.Capacitor&&window.Capacitor.getPlatform&&window.Capacitor.getPlatform())||'web', 'billing=" + (BuildConfig.ENABLE_BILLING?"on":"off") + " capacitor=" + (BuildConfig.ENABLE_CAPACITOR?"on":"off") + "');}catch(e){}");
         if (!BuildConfig.ALLOW_ZOOM) script.append(zoomLockScript());
         if (!BuildConfig.ENABLE_CLIPBOARD) script.append(clipboardLockScript());
