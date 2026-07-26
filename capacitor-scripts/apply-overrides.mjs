@@ -404,6 +404,8 @@ function stripDisabledNativeAdMob(root) {
     path.join(root, 'capacitor.build.gradle.kts'),
     path.join(root, 'app', 'build.gradle'),
     path.join(root, 'app', 'build.gradle.kts'),
+    path.join(root, 'app', 'capacitor.build.gradle'),
+    path.join(root, 'app', 'capacitor.build.gradle.kts'),
   ]) {
     if (!fs.existsSync(file)) continue
     let text = fs.readFileSync(file, 'utf8')
