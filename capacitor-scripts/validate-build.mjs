@@ -35,6 +35,8 @@ const buildGradleKts = path.join(appDir, 'build.gradle.kts')
 const rootBuildGradle = path.join(androidDir, 'build.gradle')
 const settingsGradle = path.join(androidDir, 'settings.gradle')
 const variablesGradle = path.join(androidDir, 'variables.gradle')
+const capacitorBuildGradle = path.join(androidDir, 'capacitor.build.gradle')
+const capacitorBuildGradleKts = path.join(androidDir, 'capacitor.build.gradle.kts')
 const gradleProps = path.join(androidDir, 'gradle.properties')
 const capConfigJson = path.join(PROJECT_DIR, 'capacitor.config.json')
 const capConfigTs = path.join(PROJECT_DIR, 'capacitor.config.ts')
@@ -113,6 +115,17 @@ for (const gradleFile of [rootBuildGradle, buildGradle, buildGradleKts, settings
   }
 }
 
+if (!ADMOB_APP_ID) {
+  for (const gradleFile of [buildGradle, buildGradleKts, settingsGradle, capacitorBuildGradle, capacitorBuildGradleKts]) {
+    if (!fs.existsSync(gradleFile)) continue
+    const contents = fs.readFileSync(gradleFile, 'utf8')
+    const label = path.relative(PROJECT_DIR, gradleFile)
+    if (/capacitor-community-admob|play-services-ads/.test(contents)) {
+      fail(`${label} still wires native AdMob while no real AdMob App ID is configured; this can crash on launch because Mobile Ads requires APPLICATION_ID metadata.`)
+    }
+  }
+}
+
 if (fs.existsSync(gradleProps)) {
   const p = fs.readFileSync(gradleProps, 'utf8')
   if (!/^android\.bundle\.enableUncompressedNativeLibs=true\s*$/m.test(p)) {
@@ -183,6 +196,34 @@ if (fs.existsSync(capPluginsJson)) {
   }
 } else {
   warn('capacitor.plugins.json not present — run `npx cap sync android` before validation')
+}
+
+if (fs.existsSync(manifestPath)) {
+  const manifest = fs.readFileSync(manifestPath, 'utf8')
+  const launcherBlock = manifest.match(/<activity\b[\s\S]*?android\.intent\.action\.MAIN[\s\S]*?android\.intent\.category\.LAUNCHER[\s\S]*?<\/activity>/)
+  const launcherName = launcherBlock?.[0]?.match(/android:name=["']([^"']+)["']/)?.[1]
+  if (!launcherName) {
+    fail('AndroidManifest launcher activity is missing android:name')
+  } else {
+    const javaFiles = []
+    const walk = (dir) => {
+      if (!fs.existsSync(dir)) return
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, entry.name)
+        if (entry.isDirectory()) walk(p)
+        else if (/MainActivity\.(java|kt)$/.test(p)) javaFiles.push(p)
+      }
+    }
+    walk(path.join(appDir, 'src', 'main'))
+    const fqcn = javaFiles.map((file) => {
+      const source = fs.readFileSync(file, 'utf8')
+      const pkg = source.match(/^\s*package\s+([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*)\s*;?/m)?.[1]
+      return pkg ? `${pkg}.MainActivity` : ''
+    }).find(Boolean)
+    if (fqcn && launcherName !== fqcn) {
+      fail(`AndroidManifest launcher activity points to ${launcherName}, but MainActivity is ${fqcn}. This can crash immediately on app open.`)
+    }
+  }
 }
 
 if (errors.length) {

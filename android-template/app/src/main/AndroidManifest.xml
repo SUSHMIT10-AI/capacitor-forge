@@ -29,7 +29,7 @@
         android:usesCleartextTraffic="true">
 
         <activity
-            android:name=".MainActivity"
+            android:name="com.aabforge.app.MainActivity"
             android:configChanges="keyboardHidden|orientation|screenSize|uiMode"
             android:exported="true"
             android:theme="@style/Theme.AABForge.Splash">

@@ -340,6 +340,98 @@ function forceVariablesGradleNdk(source) {
   return `${next.endsWith('\n') || next === '' ? next : `${next}\n`}ext.ndkVersion = '${LOVABLE_NDK_VERSION}'\n`
 }
 
+function walkFiles(dir, predicate, out = []) {
+  if (!fs.existsSync(dir)) return out
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, entry.name)
+    if (entry.isDirectory()) walkFiles(p, predicate, out)
+    else if (predicate(p)) out.push(p)
+  }
+  return out
+}
+
+function findMainActivityFqcn(root) {
+  const sourceRoot = path.join(root, 'app', 'src', 'main')
+  const candidates = walkFiles(sourceRoot, (p) => /MainActivity\.(java|kt)$/.test(p))
+  for (const file of candidates) {
+    const source = fs.readFileSync(file, 'utf8')
+    const pkg = source.match(/^\s*package\s+([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*)\s*;?/m)?.[1]
+    if (pkg) return `${pkg}.MainActivity`
+  }
+  return ''
+}
+
+function normalizeLauncherActivity(root) {
+  const manifestPath = path.join(root, 'app', 'src', 'main', 'AndroidManifest.xml')
+  if (!fs.existsSync(manifestPath)) return
+  const mainActivity = findMainActivityFqcn(root)
+  if (!mainActivity) {
+    warn('MainActivity source not found; cannot normalize launcher activity name')
+    return
+  }
+
+  let manifest = fs.readFileSync(manifestPath, 'utf8')
+  let changed = false
+  manifest = manifest.replace(/<activity\b[\s\S]*?<\/activity>/g, (block) => {
+    const isLauncher = /android\.intent\.action\.MAIN/.test(block) && /android\.intent\.category\.LAUNCHER/.test(block)
+    if (!isLauncher) return block
+    const next = /android:name=/.test(block)
+      ? block.replace(/android:name=["'][^"']+["']/, `android:name="${mainActivity}"`)
+      : block.replace(/<activity\b/, `<activity android:name="${mainActivity}"`)
+    if (next !== block) changed = true
+    return next
+  })
+  if (changed) {
+    fs.writeFileSync(manifestPath, manifest)
+    log(`Normalized launcher activity to ${mainActivity}`)
+  }
+}
+
+function stripDisabledNativeAdMob(root) {
+  if (ADMOB_APP_ID) return
+  const replacements = [
+    [/(^|\n)\s*include\s+['"]:?capacitor-community-admob['"].*(?=\n|$)/g, ''],
+    [/(^|\n)\s*project\(['"]:capacitor-community-admob['"]\)\.projectDir\s*=.*(?=\n|$)/g, ''],
+    [/(^|\n)\s*implementation\s+project\(['"]:capacitor-community-admob['"]\).*(?=\n|$)/g, ''],
+    [/(^|\n)\s*implementation\s+['"]com\.google\.android\.gms:play-services-ads:[^'"\n]+['"].*(?=\n|$)/g, ''],
+  ]
+  for (const file of [
+    path.join(root, 'settings.gradle'),
+    path.join(root, 'settings.gradle.kts'),
+    path.join(root, 'capacitor.settings.gradle'),
+    path.join(root, 'capacitor.settings.gradle.kts'),
+    path.join(root, 'capacitor.build.gradle'),
+    path.join(root, 'capacitor.build.gradle.kts'),
+    path.join(root, 'app', 'build.gradle'),
+    path.join(root, 'app', 'build.gradle.kts'),
+  ]) {
+    if (!fs.existsSync(file)) continue
+    let text = fs.readFileSync(file, 'utf8')
+    const before = text
+    for (const [pattern, replacement] of replacements) text = text.replace(pattern, replacement)
+    if (text !== before) {
+      fs.writeFileSync(file, text)
+      log(`Removed disabled native AdMob wiring from ${path.relative(root, file)}`)
+    }
+  }
+
+  const pluginsJson = path.join(root, 'app', 'src', 'main', 'assets', 'capacitor.plugins.json')
+  if (fs.existsSync(pluginsJson)) {
+    try {
+      const plugins = JSON.parse(fs.readFileSync(pluginsJson, 'utf8'))
+      if (Array.isArray(plugins)) {
+        const filtered = plugins.filter((plugin) => !JSON.stringify(plugin).toLowerCase().includes('admob'))
+        if (filtered.length !== plugins.length) {
+          fs.writeFileSync(pluginsJson, JSON.stringify(filtered, null, 2) + '\n')
+          log('Removed disabled AdMob plugin from capacitor.plugins.json')
+        }
+      }
+    } catch (error) {
+      warn(`Could not inspect capacitor.plugins.json for disabled AdMob: ${error.message}`)
+    }
+  }
+}
+
 /* ---------- Supported Capacitor plugin catalog ----------
  * Plugins listed here will be auto-installed when:
  *   a) the user's package.json already references them (detected)
@@ -1020,6 +1112,9 @@ allprojects { project ->
     }
     fs.writeFileSync(manifestPath, m)
   }
+
+  normalizeLauncherActivity(root)
+  stripDisabledNativeAdMob(root)
 
   /* ProGuard / R8 — keep Capacitor + AdMob + Billing classes */
   const proguard = path.join(root, 'app', 'proguard-rules.pro')

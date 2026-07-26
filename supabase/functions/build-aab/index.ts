@@ -211,6 +211,7 @@ Deno.serve(async (req) => {
 
     const cmWorkflowId = buildMode === 'capacitor' ? capacitorWorkflowId : webviewWorkflowId
     const cmAppId = savedCmAppId
+    const resolvedAdMobAppId = build.enable_admob ? (build.admob_app_id ?? '') : ''
 
     // Trigger Codemagic build
     const triggerBody: any = {
@@ -222,12 +223,12 @@ Deno.serve(async (req) => {
           BUILD_ID: build_id,
           BUILD_MODE: buildMode,
           PROJECT_ZIP_URL: projectZipUrl,
-          ADMOB_APP_ID: build.admob_app_id ?? '',
-          ADMOB_BANNER_ID: build.admob_banner_id ?? '',
-          ADMOB_INTERSTITIAL_ID: build.admob_interstitial_id ?? '',
-          ADMOB_REWARDED_ID: build.admob_rewarded_id ?? '',
-          ADMOB_REWARDED_INTERSTITIAL_ID: build.admob_rewarded_interstitial_id ?? '',
-          ADMOB_APP_OPEN_ID: build.admob_app_open_id ?? '',
+          ADMOB_APP_ID: resolvedAdMobAppId,
+          ADMOB_BANNER_ID: resolvedAdMobAppId ? (build.admob_banner_id ?? '') : '',
+          ADMOB_INTERSTITIAL_ID: resolvedAdMobAppId ? (build.admob_interstitial_id ?? '') : '',
+          ADMOB_REWARDED_ID: resolvedAdMobAppId ? (build.admob_rewarded_id ?? '') : '',
+          ADMOB_REWARDED_INTERSTITIAL_ID: resolvedAdMobAppId ? (build.admob_rewarded_interstitial_id ?? '') : '',
+          ADMOB_APP_OPEN_ID: resolvedAdMobAppId ? (build.admob_app_open_id ?? '') : '',
           // Production-only: AdMob test mode is force-disabled regardless of any
           // legacy DB flag, so builds always serve real ad units from the IDs above.
           ADMOB_TEST_MODE: 'false',
