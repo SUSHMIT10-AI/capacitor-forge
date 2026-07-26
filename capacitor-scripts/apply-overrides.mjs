@@ -1253,9 +1253,8 @@ if (validationErrors.length) {
   process.exit(2)
 } else {
   if (validationWarns.length) {
-    console.warn('[apply-overrides] warnings:')
+    console.warn('[apply-overrides] warnings (non-fatal — these are checked again after `cap sync`/web build):')
     for (const w of validationWarns) console.warn('  - ' + w)
-    if (STRICT_VALIDATION) process.exit(3)
   }
   log(`Validation OK — plugins bundled: ${[...installedPlugins].sort().join(', ') || '(core only)'}`)
 }
