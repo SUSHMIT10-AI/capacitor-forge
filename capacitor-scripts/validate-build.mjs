@@ -215,12 +215,17 @@ if (fs.existsSync(manifestPath)) {
       }
     }
     walk(path.join(appDir, 'src', 'main'))
+    if (javaFiles.length === 0) {
+      fail('No MainActivity.java or MainActivity.kt found under android/app/src/main. The app can install but will close immediately if the launcher Activity class is missing.')
+    }
     const fqcn = javaFiles.map((file) => {
       const source = fs.readFileSync(file, 'utf8')
       const pkg = source.match(/^\s*package\s+([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*)\s*;?/m)?.[1]
       return pkg ? `${pkg}.MainActivity` : ''
     }).find(Boolean)
-    if (fqcn && launcherName !== fqcn) {
+    if (javaFiles.length > 0 && !fqcn) {
+      fail('MainActivity exists but its package declaration could not be read. The launcher Activity cannot be verified safely.')
+    } else if (fqcn && launcherName !== fqcn) {
       fail(`AndroidManifest launcher activity points to ${launcherName}, but MainActivity is ${fqcn}. This can crash immediately on app open.`)
     }
   }

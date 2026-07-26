@@ -645,6 +645,35 @@ workflows:
           test -f ./gradlew
           chmod +x ./gradlew
           ls -la ./gradlew
+      - name: Validate launch manifest before build
+        working_directory: android-template
+        script: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re, pathlib
+
+          manifest_path = pathlib.Path('app/src/main/AndroidManifest.xml')
+          activity_path = pathlib.Path('app/src/main/java/com/aabforge/app/MainActivity.java')
+          manifest = manifest_path.read_text(encoding='utf-8')
+          activity = activity_path.read_text(encoding='utf-8')
+
+          block = re.search(r'<activity\b[\s\S]*?android\.intent\.action\.MAIN[\s\S]*?android\.intent\.category\.LAUNCHER[\s\S]*?</activity>', manifest)
+          if not block:
+              raise SystemExit('❌ AndroidManifest has no MAIN/LAUNCHER activity. The app would not open.')
+          launcher = re.search(r'android:name="([^"]+)"', block.group(0))
+          package = re.search(r'^\s*package\s+([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*)\s*;', activity, re.M)
+          if not launcher or not package:
+              raise SystemExit('❌ Could not verify launcher Activity against MainActivity package.')
+          expected = package.group(1) + '.MainActivity'
+          if launcher.group(1) != expected:
+              raise SystemExit(f'❌ Launcher activity is {launcher.group(1)}, but MainActivity is {expected}. This AAB would close immediately on open.')
+
+          admob_app_id = os.environ.get('ADMOB_APP_ID', '').strip()
+          if admob_app_id:
+              if 'com.google.android.gms.ads.APPLICATION_ID' not in manifest or admob_app_id not in manifest:
+                  raise SystemExit('❌ AdMob is enabled but APPLICATION_ID metadata is missing from AndroidManifest.xml. This can crash the app on launch.')
+          print('✅ Launch manifest verified before build.')
+          PY
       - name: Build Android artifacts
         working_directory: android-template
         script: |
@@ -712,6 +741,23 @@ workflows:
             [ "$ACTUAL" = "$EXPECTED" ] || fail "APK" "$ACTUAL"
           fi
           echo "✅ applicationId matches PACKAGE_NAME ($EXPECTED)."
+      - name: Verify launcher opens from release artifact
+        working_directory: android-template
+        script: |
+          set -euo pipefail
+          AAB_FILE="$(find app/build/outputs/bundle/release -name '*.aab' | head -n 1 || true)"
+          APK_FILE="$(find app/build/outputs/apk/release -name '*.apk' | head -n 1 || true)"
+          ARTIFACTS=""
+          if [ -n "$AAB_FILE" ]; then ARTIFACTS="$ARTIFACTS $AAB_FILE"; fi
+          if [ -n "$APK_FILE" ]; then ARTIFACTS="$ARTIFACTS $APK_FILE"; fi
+          if [ -z "$ARTIFACTS" ]; then
+            echo "❌ No APK/AAB artifact found to verify launchability."
+            exit 1
+          fi
+          if echo "$ARTIFACTS" | grep -q '\.aab'; then
+            curl -fsSL -o /tmp/bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
+          fi
+          EXPECTED_PACKAGE="${PACKAGE_NAME:-}" BUNDLETOOL_JAR="/tmp/bundletool.jar" node "$CM_BUILD_DIR/capacitor-scripts/verify-launch-artifact.mjs" $ARTIFACTS
       - name: Verify Play target API is 35
         working_directory: android-template
         script: |
@@ -1045,6 +1091,7 @@ workflows:
           ADMOB_APP_ID="${ADMOB_APP_ID:-}" ADMOB_BANNER_ID="${ADMOB_BANNER_ID:-}" ADMOB_INTERSTITIAL_ID="${ADMOB_INTERSTITIAL_ID:-}" ADMOB_REWARDED_ID="${ADMOB_REWARDED_ID:-}" ADMOB_REWARDED_INTERSTITIAL_ID="${ADMOB_REWARDED_INTERSTITIAL_ID:-}" ADMOB_APP_OPEN_ID="${ADMOB_APP_OPEN_ID:-}" ADMOB_TEST_MODE="${ADMOB_TEST_MODE:-false}" \
           ENABLE_NATIVE_SPLASH="${ENABLE_NATIVE_SPLASH:-true}" \
           LOVABLE_NDK_VERSION="${LOVABLE_NDK_VERSION:-28.0.13004108}" \
+          STRICT_VALIDATION=true \
             node "$CM_BUILD_DIR/capacitor-scripts/apply-overrides.mjs"
       - name: Install npm dependencies
         working_directory: user-project
@@ -1117,6 +1164,7 @@ workflows:
           ADMOB_APP_ID="${ADMOB_APP_ID:-}" ADMOB_BANNER_ID="${ADMOB_BANNER_ID:-}" ADMOB_INTERSTITIAL_ID="${ADMOB_INTERSTITIAL_ID:-}" ADMOB_REWARDED_ID="${ADMOB_REWARDED_ID:-}" ADMOB_REWARDED_INTERSTITIAL_ID="${ADMOB_REWARDED_INTERSTITIAL_ID:-}" ADMOB_APP_OPEN_ID="${ADMOB_APP_OPEN_ID:-}" ADMOB_TEST_MODE="${ADMOB_TEST_MODE:-false}" \
           ENABLE_NATIVE_SPLASH="${ENABLE_NATIVE_SPLASH:-true}" \
           LOVABLE_NDK_VERSION="${LOVABLE_NDK_VERSION:-28.0.13004108}" \
+          STRICT_VALIDATION=true REQUIRE_ANDROID=true \
             node "$CM_BUILD_DIR/capacitor-scripts/apply-overrides.mjs"
       - name: Force Android SDK compatibility
         working_directory: user-project
@@ -1963,6 +2011,23 @@ workflows:
             both) ./gradlew --init-script "$INIT_SCRIPT" --refresh-dependencies :app:assembleRelease :app:bundleRelease --no-daemon --stacktrace ;;
             *)    ./gradlew --init-script "$INIT_SCRIPT" --refresh-dependencies :app:bundleRelease --no-daemon --stacktrace ;;
           esac
+      - name: Verify launcher opens from Capacitor artifact
+        working_directory: user-project/android
+        script: |
+          set -euo pipefail
+          AAB_FILE="$(find app/build/outputs/bundle/release -name '*.aab' | head -n 1 || true)"
+          APK_FILE="$(find app/build/outputs/apk/release -name '*.apk' | head -n 1 || true)"
+          ARTIFACTS=""
+          if [ -n "$AAB_FILE" ]; then ARTIFACTS="$ARTIFACTS $AAB_FILE"; fi
+          if [ -n "$APK_FILE" ]; then ARTIFACTS="$ARTIFACTS $APK_FILE"; fi
+          if [ -z "$ARTIFACTS" ]; then
+            echo "❌ No APK/AAB artifact found to verify launchability."
+            exit 1
+          fi
+          if echo "$ARTIFACTS" | grep -q '\.aab'; then
+            curl -fsSL -o /tmp/bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
+          fi
+          EXPECTED_PACKAGE="${PACKAGE_NAME:-}" BUNDLETOOL_JAR="/tmp/bundletool.jar" node "$CM_BUILD_DIR/capacitor-scripts/verify-launch-artifact.mjs" $ARTIFACTS
       - name: Verify advertising ID permission in Capacitor artifact
         working_directory: user-project/android
         script: |
