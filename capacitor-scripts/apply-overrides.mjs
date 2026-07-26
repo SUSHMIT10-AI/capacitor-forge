@@ -20,7 +20,7 @@
  *   ADMOB_APP_ID     - Optional ca-app-pub-...~... id; injected as meta-data
  *   ENABLE_BILLING   - "true" to bundle Play Billing plugin
  *   EXTRA_PLUGINS    - Comma-separated extra Capacitor plugin npm names to bundle
- *   STRICT_VALIDATION - "true" to fail hard if validation reports issues
+ *   STRICT_VALIDATION - "true" to fail hard if validation reports warnings
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -1250,9 +1250,13 @@ if (validationErrors.length) {
     console.error('[apply-overrides] warnings:')
     for (const w of validationWarns) console.error('  - ' + w)
   }
-  if (STRICT_VALIDATION) process.exit(2)
-  else console.error('[apply-overrides] Continuing anyway (STRICT_VALIDATION not set).')
+  process.exit(2)
 } else {
+  if (validationWarns.length) {
+    console.warn('[apply-overrides] warnings:')
+    for (const w of validationWarns) console.warn('  - ' + w)
+    if (STRICT_VALIDATION) process.exit(3)
+  }
   log(`Validation OK — plugins bundled: ${[...installedPlugins].sort().join(', ') || '(core only)'}`)
 }
 
