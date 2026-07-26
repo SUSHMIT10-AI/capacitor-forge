@@ -712,6 +712,23 @@ workflows:
             [ "$ACTUAL" = "$EXPECTED" ] || fail "APK" "$ACTUAL"
           fi
           echo "✅ applicationId matches PACKAGE_NAME ($EXPECTED)."
+      - name: Verify launcher opens from release artifact
+        working_directory: android-template
+        script: |
+          set -euo pipefail
+          AAB_FILE="$(find app/build/outputs/bundle/release -name '*.aab' | head -n 1 || true)"
+          APK_FILE="$(find app/build/outputs/apk/release -name '*.apk' | head -n 1 || true)"
+          ARTIFACTS=""
+          if [ -n "$AAB_FILE" ]; then ARTIFACTS="$ARTIFACTS $AAB_FILE"; fi
+          if [ -n "$APK_FILE" ]; then ARTIFACTS="$ARTIFACTS $APK_FILE"; fi
+          if [ -z "$ARTIFACTS" ]; then
+            echo "❌ No APK/AAB artifact found to verify launchability."
+            exit 1
+          fi
+          if echo "$ARTIFACTS" | grep -q '\.aab'; then
+            curl -fsSL -o /tmp/bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
+          fi
+          EXPECTED_PACKAGE="${PACKAGE_NAME:-}" BUNDLETOOL_JAR="/tmp/bundletool.jar" node "$CM_BUILD_DIR/capacitor-scripts/verify-launch-artifact.mjs" $ARTIFACTS
       - name: Verify Play target API is 35
         working_directory: android-template
         script: |
@@ -1963,6 +1980,23 @@ workflows:
             both) ./gradlew --init-script "$INIT_SCRIPT" --refresh-dependencies :app:assembleRelease :app:bundleRelease --no-daemon --stacktrace ;;
             *)    ./gradlew --init-script "$INIT_SCRIPT" --refresh-dependencies :app:bundleRelease --no-daemon --stacktrace ;;
           esac
+      - name: Verify launcher opens from Capacitor artifact
+        working_directory: user-project/android
+        script: |
+          set -euo pipefail
+          AAB_FILE="$(find app/build/outputs/bundle/release -name '*.aab' | head -n 1 || true)"
+          APK_FILE="$(find app/build/outputs/apk/release -name '*.apk' | head -n 1 || true)"
+          ARTIFACTS=""
+          if [ -n "$AAB_FILE" ]; then ARTIFACTS="$ARTIFACTS $AAB_FILE"; fi
+          if [ -n "$APK_FILE" ]; then ARTIFACTS="$ARTIFACTS $APK_FILE"; fi
+          if [ -z "$ARTIFACTS" ]; then
+            echo "❌ No APK/AAB artifact found to verify launchability."
+            exit 1
+          fi
+          if echo "$ARTIFACTS" | grep -q '\.aab'; then
+            curl -fsSL -o /tmp/bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
+          fi
+          EXPECTED_PACKAGE="${PACKAGE_NAME:-}" BUNDLETOOL_JAR="/tmp/bundletool.jar" node "$CM_BUILD_DIR/capacitor-scripts/verify-launch-artifact.mjs" $ARTIFACTS
       - name: Verify advertising ID permission in Capacitor artifact
         working_directory: user-project/android
         script: |
