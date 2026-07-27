@@ -125,8 +125,10 @@ Deno.serve(async (req) => {
           return json({ status: 'failed', error: msg })
         }
         const targetSdk = getAabTargetSdk(aabBlob)
-        if (targetSdk !== '35') {
-          const msg = `Generated AAB targets API ${targetSdk ?? 'unknown'}, not 35. The CI source is stale; do not upload this AAB to Play Console. Re-run after Codemagic picks up the latest SDK 35 workflow.`
+        const targetSdkNum = Number.parseInt(targetSdk ?? '', 10)
+        if (!Number.isFinite(targetSdkNum) || targetSdkNum < 36) {
+          const msg = `Generated AAB targets API ${targetSdk ?? 'unknown'}, but Google Play requires API 36 (Android 16). The CI source is stale; re-run after Codemagic picks up the latest SDK 36 workflow.`
+
           await supabase
             .from('build_configs')
             .update({ status: 'failed', error_message: msg })
