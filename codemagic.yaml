@@ -643,8 +643,8 @@ workflows:
         working_directory: android-template
         script: |
           if [ ! -f ./gradlew ]; then
-            echo "gradlew missing — generating wrapper with Gradle 8.7"
-            gradle wrapper --gradle-version 8.7 --distribution-type bin
+            echo "gradlew missing — generating wrapper with Gradle 8.11.1"
+            gradle wrapper --gradle-version 8.11.1 --distribution-type bin
           fi
           test -f ./gradlew
           chmod +x ./gradlew
@@ -1710,7 +1710,7 @@ workflows:
           import re, sys
           path = sys.argv[1]
           text = open(path, encoding='utf-8').read()
-          text = re.sub(r'^distributionUrl=.*$', r'distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-bin.zip', text, flags=re.M)
+          text = re.sub(r'^distributionUrl=.*$', r'distributionUrl=https\://services.gradle.org/distributions/gradle-8.11.1-bin.zip', text, flags=re.M)
           open(path, 'w', encoding='utf-8').write(text)
           PY
             echo "✅ Gradle wrapper pinned to 8.7 for Java 21 compatibility"
@@ -1723,12 +1723,12 @@ workflows:
           import re, sys
           path = sys.argv[1]
           text = open(path, encoding='utf-8').read()
-          text = re.sub(r"id\s+['\"]com\.android\.application['\"]\s+version\s+['\"][^'\"]+['\"]", "id 'com.android.application' version '8.6.1'", text)
-          text = re.sub(r"id\s+['\"]com\.android\.library['\"]\s+version\s+['\"][^'\"]+['\"]", "id 'com.android.library' version '8.6.1'", text)
-          text = re.sub(r"classpath\s+['\"]com\.android\.tools\.build:gradle:[^'\"]+['\"]", "classpath 'com.android.tools.build:gradle:8.6.1'", text)
+          text = re.sub(r"id\s+['\"]com\.android\.application['\"]\s+version\s+['\"][^'\"]+['\"]", "id 'com.android.application' version '8.9.1'", text)
+          text = re.sub(r"id\s+['\"]com\.android\.library['\"]\s+version\s+['\"][^'\"]+['\"]", "id 'com.android.library' version '8.9.1'", text)
+          text = re.sub(r"classpath\s+['\"]com\.android\.tools\.build:gradle:[^'\"]+['\"]", "classpath 'com.android.tools.build:gradle:8.9.1'", text)
           open(path, 'w', encoding='utf-8').write(text)
           PY
-          echo "✅ Android Gradle Plugin aligned to 8.6.1"
+          echo "✅ Android Gradle Plugin aligned to 8.9.1"
           # Capacitor plugins commonly drag in kotlin-stdlib-jdk7/jdk8:1.6.21 while
           # AGP 8.x ships kotlin-stdlib:1.8.22+. In Kotlin 1.8+ jdk7/jdk8 are merged
           # into the main stdlib, so mixing the two produces:
