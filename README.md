@@ -2,9 +2,20 @@
 
 AABforge builds signed Android App Bundles for Google Play from web URLs or uploaded Capacitor projects.
 
+## Google Play target API level policy (current)
+
+Per Google Play's [target API level requirements](https://support.google.com/googleplay/android-developer/answer/11926878), from **August 31, 2026**:
+
+- New apps and app updates must target **Android 16 (API 36)** or higher.
+- Existing apps must target **Android 15 (API 35)** or higher to stay discoverable.
+- Wear OS / Automotive: API 35+. Android TV / XR: API 34+.
+
+AABforge therefore builds at **API 36** so uploads stay accepted past the deadline.
+
 ## Current Android build settings
 
 - `compileSdk 36`, `targetSdk 36`, and `minSdk 22` are enforced in the build workflow.
+- Toolchain: Gradle 8.11.1 + Android Gradle Plugin 8.9.1 (required to compile against API 36), Java 21.
 - All Google Play ABIs are included: `armeabi-v7a`, `arm64-v8a`, `x86`, and `x86_64`.
 - Release builds require an uploaded `.jks` / `.keystore` and are signed for Play Console upload.
 - Production AdMob builds inject the AdMob app ID, ad unit IDs, Google Mobile Ads SDK, and `com.google.android.gms.permission.AD_ID`; builds without AdMob strip `AD_ID` so Play policy declarations match the artifact.
