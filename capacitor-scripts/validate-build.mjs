@@ -80,13 +80,13 @@ for (const gradleFile of [rootBuildGradle, buildGradle, buildGradleKts, settings
   if (label === path.join('android', 'app', 'build.gradle') || label === path.join('android', 'app', 'build.gradle.kts')) {
     const compileSdkMatches = [...contents.matchAll(/compileSdk(?:Version)?\s*(?:=|\()?\s*(\d+)/g)]
     const targetSdkMatches = [...contents.matchAll(/targetSdk(?:Version)?\s*(?:=|\()?\s*(\d+)/g)]
-    if (!compileSdkMatches.length) fail(`${label} is missing compileSdk; Play-ready builds require compileSdk 35`)
-    if (!targetSdkMatches.length) fail(`${label} is missing targetSdk; Play-ready builds require targetSdk 35`)
+    if (!compileSdkMatches.length) fail(`${label} is missing compileSdk; Play-ready builds require compileSdk 36`)
+    if (!targetSdkMatches.length) fail(`${label} is missing targetSdk; Play-ready builds require targetSdk 36`)
     for (const match of compileSdkMatches) {
-      if (Number(match[1]) !== 35) fail(`${label} has compileSdk ${match[1]}; Play-ready builds require compileSdk 35`)
+      if (Number(match[1]) !== 35) fail(`${label} has compileSdk ${match[1]}; Play-ready builds require compileSdk 36`)
     }
     for (const match of targetSdkMatches) {
-      if (Number(match[1]) !== 35) fail(`${label} has targetSdk ${match[1]}; Play Console requires targetSdk 35`)
+      if (Number(match[1]) !== 35) fail(`${label} has targetSdk ${match[1]}; Play Console requires targetSdk 36`)
     }
     const minSdkMatches = [...contents.matchAll(/minSdk(?:Version)?\s*(?:=|\()?\s*(\d+)/g)]
     if (!minSdkMatches.length) fail(`${label} is missing minSdk; Google Play Services requires minSdk 22`)
@@ -104,7 +104,7 @@ for (const gradleFile of [rootBuildGradle, buildGradle, buildGradleKts, settings
     }
   }
   if (label === path.join('android', 'variables.gradle')) {
-    for (const [name, expected] of [['compileSdkVersion', 35], ['targetSdkVersion', 35], ['minSdkVersion', 22]]) {
+    for (const [name, expected] of [['compileSdkVersion', 36], ['targetSdkVersion', 36], ['minSdkVersion', 22]]) {
       const re = new RegExp(`${name}\\s*=\\s*(\\d+)`)
       const match = contents.match(re)
       if (match && Number(match[1]) !== expected) fail(`${label} has ${name} ${match[1]}; expected ${expected}`)

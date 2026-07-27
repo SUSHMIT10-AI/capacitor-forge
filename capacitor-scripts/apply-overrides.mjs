@@ -216,30 +216,30 @@ function repairBouncyCastleAlignment(source) {
 
 function forceAndroidSdkCompatibility(source) {
   let next = source
-    .replace(/compileSdkVersion\s+rootProject\.ext\.compileSdkVersion/g, 'compileSdk 35')
-    .replace(/compileSdk\s+rootProject\.ext\.compileSdkVersion/g, 'compileSdk 35')
-    .replace(/compileSdkVersion\s*=\s*rootProject\.ext\.compileSdkVersion/g, 'compileSdkVersion = 35')
-    .replace(/compileSdk\s*=\s*rootProject\.ext\.compileSdkVersion/g, 'compileSdk = 35')
-    .replace(/targetSdkVersion\s+rootProject\.ext\.targetSdkVersion/g, 'targetSdk 35')
-    .replace(/targetSdk\s+rootProject\.ext\.targetSdkVersion/g, 'targetSdk 35')
-    .replace(/targetSdkVersion\s*=\s*rootProject\.ext\.targetSdkVersion/g, 'targetSdkVersion = 35')
-    .replace(/targetSdk\s*=\s*rootProject\.ext\.targetSdkVersion/g, 'targetSdk = 35')
+    .replace(/compileSdkVersion\s+rootProject\.ext\.compileSdkVersion/g, 'compileSdk 36')
+    .replace(/compileSdk\s+rootProject\.ext\.compileSdkVersion/g, 'compileSdk 36')
+    .replace(/compileSdkVersion\s*=\s*rootProject\.ext\.compileSdkVersion/g, 'compileSdkVersion = 36')
+    .replace(/compileSdk\s*=\s*rootProject\.ext\.compileSdkVersion/g, 'compileSdk = 36')
+    .replace(/targetSdkVersion\s+rootProject\.ext\.targetSdkVersion/g, 'targetSdk 36')
+    .replace(/targetSdk\s+rootProject\.ext\.targetSdkVersion/g, 'targetSdk 36')
+    .replace(/targetSdkVersion\s*=\s*rootProject\.ext\.targetSdkVersion/g, 'targetSdkVersion = 36')
+    .replace(/targetSdk\s*=\s*rootProject\.ext\.targetSdkVersion/g, 'targetSdk = 36')
     .replace(/minSdkVersion\s+rootProject\.ext\.minSdkVersion/g, 'minSdk 22')
     .replace(/minSdk\s+rootProject\.ext\.minSdkVersion/g, 'minSdk 22')
     .replace(/minSdkVersion\s*=\s*rootProject\.ext\.minSdkVersion/g, 'minSdkVersion = 22')
     .replace(/minSdk\s*=\s*rootProject\.ext\.minSdkVersion/g, 'minSdk = 22')
-    .replace(/compileSdkVersion\s+\d+/g, 'compileSdkVersion 35')
-    .replace(/compileSdk\s+\d+/g, 'compileSdk 35')
-    .replace(/compileSdkVersion\s*=\s*\d+/g, 'compileSdkVersion = 35')
-    .replace(/compileSdk\s*=\s*\d+/g, 'compileSdk = 35')
-    .replace(/compileSdkVersion\(\s*\d+\s*\)/g, 'compileSdkVersion(35)')
-    .replace(/compileSdk\(\s*\d+\s*\)/g, 'compileSdk(35)')
-    .replace(/targetSdkVersion\s+\d+/g, 'targetSdkVersion 35')
-    .replace(/targetSdk\s+\d+/g, 'targetSdk 35')
-    .replace(/targetSdkVersion\s*=\s*\d+/g, 'targetSdkVersion = 35')
-    .replace(/targetSdk\s*=\s*\d+/g, 'targetSdk = 35')
-    .replace(/targetSdkVersion\(\s*\d+\s*\)/g, 'targetSdkVersion(35)')
-    .replace(/targetSdk\(\s*\d+\s*\)/g, 'targetSdk(35)')
+    .replace(/compileSdkVersion\s+\d+/g, 'compileSdkVersion 36')
+    .replace(/compileSdk\s+\d+/g, 'compileSdk 36')
+    .replace(/compileSdkVersion\s*=\s*\d+/g, 'compileSdkVersion = 36')
+    .replace(/compileSdk\s*=\s*\d+/g, 'compileSdk = 36')
+    .replace(/compileSdkVersion\(\s*\d+\s*\)/g, 'compileSdkVersion(36)')
+    .replace(/compileSdk\(\s*\d+\s*\)/g, 'compileSdk(36)')
+    .replace(/targetSdkVersion\s+\d+/g, 'targetSdkVersion 36')
+    .replace(/targetSdk\s+\d+/g, 'targetSdk 36')
+    .replace(/targetSdkVersion\s*=\s*\d+/g, 'targetSdkVersion = 36')
+    .replace(/targetSdk\s*=\s*\d+/g, 'targetSdk = 36')
+    .replace(/targetSdkVersion\(\s*\d+\s*\)/g, 'targetSdkVersion(36)')
+    .replace(/targetSdk\(\s*\d+\s*\)/g, 'targetSdk(36)')
     .replace(/minSdkVersion\s+\d+/g, 'minSdkVersion 22')
     .replace(/minSdk\s+\d+/g, 'minSdk 22')
     .replace(/minSdkVersion\s*=\s*\d+/g, 'minSdkVersion = 22')
@@ -248,11 +248,11 @@ function forceAndroidSdkCompatibility(source) {
     .replace(/minSdk\(\s*\d+\s*\)/g, 'minSdk(22)')
 
   if (!/\bcompileSdk(?:Version)?\b/.test(next)) {
-    next = next.replace(/android\s*\{/, (m) => `${m}\n    compileSdk 35`)
+    next = next.replace(/android\s*\{/, (m) => `${m}\n    compileSdk 36`)
   }
 
   if (!/\btargetSdk(?:Version)?\b/.test(next)) {
-    next = next.replace(/defaultConfig\s*\{/, (m) => `${m}\n        targetSdk 35`)
+    next = next.replace(/defaultConfig\s*\{/, (m) => `${m}\n        targetSdk 36`)
   }
 
   if (!/\bminSdk(?:Version)?\b/.test(next)) {
@@ -276,7 +276,7 @@ function force16KbJniPackaging(source, isKts = false) {
 
   const block = isKts
     ? `
-    // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 35+)
+    // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 36+)
     packaging {
         jniLibs {
             useLegacyPackaging = false
@@ -284,7 +284,7 @@ function force16KbJniPackaging(source, isKts = false) {
     }
 `
     : `
-    // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 35+)
+    // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 36+)
     packagingOptions {
         jniLibs {
             useLegacyPackaging = false
@@ -805,7 +805,7 @@ export function patchAndroid(root) {
     'android.enableJetifier': 'true',
     'org.gradle.jvmargs': '-Xmx2048m -Dfile.encoding=UTF-8',
     'android.nonTransitiveRClass': 'true',
-    // 16 KB page-size compatibility (Play requirement for API 35+).
+    // 16 KB page-size compatibility (Play requirement for API 36+).
     // Keeps .so files uncompressed & 16 KB-aligned inside the AAB.
     'android.bundle.enableUncompressedNativeLibs': 'true',
   }
@@ -847,7 +847,7 @@ export function patchAndroid(root) {
       g = g.replace(/dependencies\s*\{/, (m) => `${m}\n    implementation 'androidx.multidex:multidex:2.0.1'`)
     }
     // 16 KB page-size compatibility — required by Google Play from Nov 2025 for
-    // apps targeting API 35+. Keep .so files uncompressed & page-aligned so
+    // apps targeting API 36+. Keep .so files uncompressed & page-aligned so
     // they can be mmap'd directly from the APK on 16 KB-page devices.
     g = force16KbJniPackaging(g, isKts)
 
@@ -883,7 +883,7 @@ export function patchAndroid(root) {
     let next = forceVariablesGradleNdk(forceAndroidSdkCompatibility(vars))
     if (next !== vars) {
       fs.writeFileSync(variablesGradle, next)
-      log('Locked android/variables.gradle to compileSdk 35, targetSdk 35, minSdk 22, and safe NDK r28+ extra property')
+      log('Locked android/variables.gradle to compileSdk 36, targetSdk 36, minSdk 22, and safe NDK r28+ extra property')
     }
   }
 
