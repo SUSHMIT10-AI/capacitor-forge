@@ -83,10 +83,10 @@ for (const gradleFile of [rootBuildGradle, buildGradle, buildGradleKts, settings
     if (!compileSdkMatches.length) fail(`${label} is missing compileSdk; Play-ready builds require compileSdk 36`)
     if (!targetSdkMatches.length) fail(`${label} is missing targetSdk; Play-ready builds require targetSdk 36`)
     for (const match of compileSdkMatches) {
-      if (Number(match[1]) !== 35) fail(`${label} has compileSdk ${match[1]}; Play-ready builds require compileSdk 36`)
+      if (Number(match[1]) < 36) fail(`${label} has compileSdk ${match[1]}; Play-ready builds require compileSdk 36`)
     }
     for (const match of targetSdkMatches) {
-      if (Number(match[1]) !== 35) fail(`${label} has targetSdk ${match[1]}; Play Console requires targetSdk 36`)
+      if (Number(match[1]) < 36) fail(`${label} has targetSdk ${match[1]}; Play Console requires targetSdk 36`)
     }
     const minSdkMatches = [...contents.matchAll(/minSdk(?:Version)?\s*(?:=|\()?\s*(\d+)/g)]
     if (!minSdkMatches.length) fail(`${label} is missing minSdk; Google Play Services requires minSdk 22`)

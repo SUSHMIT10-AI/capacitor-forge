@@ -168,8 +168,8 @@ workflows:
           open(path, 'w', encoding='utf-8').write(text)
           PY
           perl -0pi -e 's/android:extractNativeLibs="[^"]*"/android:extractNativeLibs="false"/g; if (!/android:extractNativeLibs=/) { s/<application\b([^>]*)>/<application$1 android:extractNativeLibs="false">/s }' "$CM_BUILD_DIR/android-template/app/src/main/AndroidManifest.xml"
-          grep -Eq 'compileSdk\s+35' "$GRADLE_FILE"
-          grep -Eq 'targetSdk\s+35' "$GRADLE_FILE"
+          grep -Eq 'compileSdk\s+36' "$GRADLE_FILE"
+          grep -Eq 'targetSdk\s+36' "$GRADLE_FILE"
           grep -Eq 'minSdk\s+22' "$GRADLE_FILE"
           grep -Eq 'useLegacyPackaging\s*=\s*false' "$GRADLE_FILE"
           grep -Eq '^android\.bundle\.enableUncompressedNativeLibs=true' "$CM_BUILD_DIR/android-template/gradle.properties"
