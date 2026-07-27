@@ -2,9 +2,20 @@
 
 AABforge builds signed Android App Bundles for Google Play from web URLs or uploaded Capacitor projects.
 
+## Google Play target API level policy (current)
+
+Per Google Play's [target API level requirements](https://support.google.com/googleplay/android-developer/answer/11926878), from **August 31, 2026**:
+
+- New apps and app updates must target **Android 16 (API 36)** or higher.
+- Existing apps must target **Android 15 (API 35)** or higher to stay discoverable.
+- Wear OS / Automotive: API 35+. Android TV / XR: API 34+.
+
+AABforge therefore builds at **API 36** so uploads stay accepted past the deadline.
+
 ## Current Android build settings
 
-- `compileSdk 35`, `targetSdk 35`, and `minSdk 22` are enforced in the build workflow.
+- `compileSdk 36`, `targetSdk 36`, and `minSdk 22` are enforced in the build workflow.
+- Toolchain: Gradle 8.11.1 + Android Gradle Plugin 8.9.1 (required to compile against API 36), Java 21.
 - All Google Play ABIs are included: `armeabi-v7a`, `arm64-v8a`, `x86`, and `x86_64`.
 - Release builds require an uploaded `.jks` / `.keystore` and are signed for Play Console upload.
 - Production AdMob builds inject the AdMob app ID, ad unit IDs, Google Mobile Ads SDK, and `com.google.android.gms.permission.AD_ID`; builds without AdMob strip `AD_ID` so Play policy declarations match the artifact.
@@ -17,7 +28,7 @@ AABforge builds signed Android App Bundles for Google Play from web URLs or uplo
 
 | Play Console requirement | Where it is enforced |
 | --- | --- |
-| `targetSdk 35` (Android 15) | `capacitor-scripts/apply-overrides.mjs`, `validate-build.mjs`, `codemagic.yaml` |
+| `targetSdk 36` (Android 16) | `capacitor-scripts/apply-overrides.mjs`, `validate-build.mjs`, `codemagic.yaml` |
 | `minSdk 22` for broad device support | Same as above; hard-checked before assembly |
 | Advertising ID permission (`com.google.android.gms.permission.AD_ID`) | Injected + verified only when a real AdMob App ID is configured; stripped otherwise |
 | Real AdMob IDs only (no test IDs) | `ADMOB_TEST_MODE` hard-disabled in `build-aab` + builder scripts |
@@ -36,8 +47,8 @@ These are **policy declarations**, not build artifacts — the builder cannot to
 4. **Target audience & content** — required for all new apps.
 5. **App access** — if the app has login, provide test credentials.
 
-If Play Console keeps rejecting the AAB after a successful build, it is almost always one of the five items above — the artifact itself already satisfies technical requirements (target SDK 35, conditional AD_ID permission, 16 KB alignment, real ad IDs, signed).
+If Play Console keeps rejecting the AAB after a successful build, it is almost always one of the five items above — the artifact itself already satisfies technical requirements (target SDK 36, conditional AD_ID permission, 16 KB alignment, real ad IDs, signed).
 
 ## Latest build fix
 
-The latest failed build stopped in **Force Android SDK compatibility** because Codemagic ran an older repository revision where the workflow referenced `variables` before defining `android/variables.gradle`. The current workflow defines the path first, then enforces `compileSdk 35`, `targetSdk 35`, `minSdk 22`, NDK r28+, `android.bundle.enableUncompressedNativeLibs=true`, `jniLibs.useLegacyPackaging=false`, and `android:extractNativeLibs="false"` before Gradle runs. The local workflow check verifies this script and the YAML parses successfully; start a fresh build after the connected Git repository has synced this revision.
+The latest failed build stopped in **Force Android SDK compatibility** because Codemagic ran an older repository revision where the workflow referenced `variables` before defining `android/variables.gradle`. The current workflow defines the path first, then enforces `compileSdk 36`, `targetSdk 36`, `minSdk 22`, NDK r28+, `android.bundle.enableUncompressedNativeLibs=true`, `jniLibs.useLegacyPackaging=false`, and `android:extractNativeLibs="false"` before Gradle runs. The local workflow check verifies this script and the YAML parses successfully; start a fresh build after the connected Git repository has synced this revision.

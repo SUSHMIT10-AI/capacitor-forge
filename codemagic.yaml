@@ -124,10 +124,10 @@ workflows:
       - name: Set up Android SDK path
         script: |
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android-template/local.properties"
-      - name: Force Android API 35 target and minSdk 22
+      - name: Force Android API 36 target and minSdk 22
         script: |
           set -euo pipefail
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" >/dev/null || true
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" >/dev/null || true
           NDK_PACKAGE="$("$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --list 2>/dev/null | awk -F'|' '/ndk;2[8-9]\./ {gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1}' | sort -V | tail -n 1 || true)"
           if [ -z "$NDK_PACKAGE" ]; then NDK_PACKAGE="ndk;28.0.13004108"; fi
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "$NDK_PACKAGE" >/dev/null || true
@@ -139,7 +139,7 @@ workflows:
           echo "LOVABLE_NDK_VERSION=$NDK_VERSION" >> "$CM_ENV"
           echo "✅ Android NDK $NDK_VERSION available; native source builds will use 16 KB ELF alignment defaults."
           GRADLE_FILE="$CM_BUILD_DIR/android-template/app/build.gradle"
-          perl -0pi -e 's/compileSdk(?:Version)?\s+\d+/compileSdk 35/g; s/targetSdk(?:Version)?\s+\d+/targetSdk 35/g; s/minSdk(?:Version)?\s+\d+/minSdk 22/g' "$GRADLE_FILE"
+          perl -0pi -e 's/compileSdk(?:Version)?\s+\d+/compileSdk 36/g; s/targetSdk(?:Version)?\s+\d+/targetSdk 36/g; s/minSdk(?:Version)?\s+\d+/minSdk 22/g' "$GRADLE_FILE"
           grep -q '^android\.bundle\.enableUncompressedNativeLibs=true$' "$CM_BUILD_DIR/android-template/gradle.properties" || echo "android.bundle.enableUncompressedNativeLibs=true" >> "$CM_BUILD_DIR/android-template/gradle.properties"
           python3 - "$GRADLE_FILE" "$NDK_VERSION" <<'PY'
           import re, sys
@@ -155,7 +155,7 @@ workflows:
           text = re.sub(r'ndkVersion\s+project\.ext\.ndkVersion', f'ndkVersion "{ndk}"', text)
           if 'useLegacyPackaging = false' not in text:
               block = '''
-              // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 35+)
+              // LOVABLE_16KB_JNILIBS — 16 KB page-size compatibility for Play (API 36+)
               packagingOptions {
                   jniLibs {
                       useLegacyPackaging = false
@@ -168,14 +168,14 @@ workflows:
           open(path, 'w', encoding='utf-8').write(text)
           PY
           perl -0pi -e 's/android:extractNativeLibs="[^"]*"/android:extractNativeLibs="false"/g; if (!/android:extractNativeLibs=/) { s/<application\b([^>]*)>/<application$1 android:extractNativeLibs="false">/s }' "$CM_BUILD_DIR/android-template/app/src/main/AndroidManifest.xml"
-          grep -Eq 'compileSdk\s+35' "$GRADLE_FILE"
-          grep -Eq 'targetSdk\s+35' "$GRADLE_FILE"
+          grep -Eq 'compileSdk\s+36' "$GRADLE_FILE"
+          grep -Eq 'targetSdk\s+36' "$GRADLE_FILE"
           grep -Eq 'minSdk\s+22' "$GRADLE_FILE"
           grep -Eq 'useLegacyPackaging\s*=\s*false' "$GRADLE_FILE"
           grep -Eq '^android\.bundle\.enableUncompressedNativeLibs=true' "$CM_BUILD_DIR/android-template/gradle.properties"
           grep -Eq 'android:extractNativeLibs="false"' "$CM_BUILD_DIR/android-template/app/src/main/AndroidManifest.xml"
           sed -n '/android {/,/defaultConfig {/p; /defaultConfig {/,/}/p' "$GRADLE_FILE" | grep -E 'compileSdk|targetSdk|minSdk' || true
-          echo "✅ Android build is locked to compileSdk 35, targetSdk 35, minSdk 22, and 16 KB native-library packaging."
+          echo "✅ Android build is locked to compileSdk 36, targetSdk 36, minSdk 22, and 16 KB native-library packaging."
       - name: Normalize Gradle signing DSL
         script: |
           GRADLE_FILE="$CM_BUILD_DIR/android-template/app/build.gradle"
@@ -643,8 +643,8 @@ workflows:
         working_directory: android-template
         script: |
           if [ ! -f ./gradlew ]; then
-            echo "gradlew missing — generating wrapper with Gradle 8.7"
-            gradle wrapper --gradle-version 8.7 --distribution-type bin
+            echo "gradlew missing — generating wrapper with Gradle 8.11.1"
+            gradle wrapper --gradle-version 8.11.1 --distribution-type bin
           fi
           test -f ./gradlew
           chmod +x ./gradlew
@@ -762,7 +762,7 @@ workflows:
             curl -fsSL -o /tmp/bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
           fi
           EXPECTED_PACKAGE="${PACKAGE_NAME:-}" BUNDLETOOL_JAR="/tmp/bundletool.jar" node "$CM_BUILD_DIR/capacitor-scripts/verify-launch-artifact.mjs" $ARTIFACTS
-      - name: Verify Play target API is 35
+      - name: Verify Play target API is 36
         working_directory: android-template
         script: |
           set -euo pipefail
@@ -781,20 +781,20 @@ workflows:
               curl -fsSL -o /tmp/bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
               manifest="$(java -jar /tmp/bundletool.jar dump manifest --bundle="$file")"
               echo "$manifest" | grep -i 'targetSdk' || true
-              if ! echo "$manifest" | grep -Eq 'targetSdkVersion="35"'; then
-                echo "❌ AAB targetSdkVersion is not 35. Play Console will reject this upload."
+              if ! echo "$manifest" | grep -Eq 'targetSdkVersion="36"'; then
+                echo "❌ AAB targetSdkVersion is not 36. Play Console will reject this upload."
                 exit 1
               fi
             else
               local dump
               dump="$("$AAPT2" dump badging "$file" 2>/dev/null || true)"
               echo "$dump" | grep -Ei "targetSdkVersion|sdkVersion" || true
-              if ! echo "$dump" | grep -Eq "targetSdkVersion:'35'"; then
-                echo "❌ APK targetSdkVersion is not 35."
+              if ! echo "$dump" | grep -Eq "targetSdkVersion:'36'"; then
+                echo "❌ APK targetSdkVersion is not 36."
                 exit 1
               fi
             fi
-            echo "✅ $kind targetSdkVersion is 35."
+            echo "✅ $kind targetSdkVersion is 36."
           }
 
           if [ -n "$AAB_FILE" ]; then check_target_sdk "$AAB_FILE" "AAB"; fi
@@ -1050,10 +1050,10 @@ workflows:
           : "${CM_KEYSTORE:?Release keystore required}"
           : "${CM_KEYSTORE_PASSWORD:?Keystore password required}"
           echo "✅ Capacitor build inputs present"
-      - name: Install Android SDK 35, Build Tools, and NDK r28
+      - name: Install Android SDK 36, Build Tools, and NDK r28
         script: |
           set -euo pipefail
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" >/dev/null || true
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" >/dev/null || true
           NDK_PACKAGE="$("$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --list 2>/dev/null | awk -F'|' '/ndk;2[8-9]\./ {gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1}' | sort -V | tail -n 1 || true)"
           if [ -z "$NDK_PACKAGE" ]; then NDK_PACKAGE="ndk;28.0.13004108"; fi
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "$NDK_PACKAGE" >/dev/null || true
@@ -1063,7 +1063,7 @@ workflows:
             exit 1
           fi
           echo "LOVABLE_NDK_VERSION=$NDK_VERSION" >> "$CM_ENV"
-          echo "✅ Android SDK 35, Build Tools 35, and NDK $NDK_VERSION installed for 16 KB native-library builds."
+          echo "✅ Android SDK 36, Build Tools 36, and NDK $NDK_VERSION installed for 16 KB native-library builds."
       - name: Download and unzip Capacitor project
         script: |
           set -euo pipefail
@@ -1186,30 +1186,30 @@ workflows:
               if not path.exists():
                   continue
               text = path.read_text(encoding='utf-8')
-              text = re.sub(r'compileSdkVersion\s+rootProject\.ext\.compileSdkVersion', 'compileSdk 35', text)
-              text = re.sub(r'compileSdk\s+rootProject\.ext\.compileSdkVersion', 'compileSdk 35', text)
-              text = re.sub(r'compileSdkVersion\s*=\s*rootProject\.ext\.compileSdkVersion', 'compileSdkVersion = 35', text)
-              text = re.sub(r'compileSdk\s*=\s*rootProject\.ext\.compileSdkVersion', 'compileSdk = 35', text)
-              text = re.sub(r'targetSdkVersion\s+rootProject\.ext\.targetSdkVersion', 'targetSdk 35', text)
-              text = re.sub(r'targetSdk\s+rootProject\.ext\.targetSdkVersion', 'targetSdk 35', text)
-              text = re.sub(r'targetSdkVersion\s*=\s*rootProject\.ext\.targetSdkVersion', 'targetSdkVersion = 35', text)
-              text = re.sub(r'targetSdk\s*=\s*rootProject\.ext\.targetSdkVersion', 'targetSdk = 35', text)
+              text = re.sub(r'compileSdkVersion\s+rootProject\.ext\.compileSdkVersion', 'compileSdk 36', text)
+              text = re.sub(r'compileSdk\s+rootProject\.ext\.compileSdkVersion', 'compileSdk 36', text)
+              text = re.sub(r'compileSdkVersion\s*=\s*rootProject\.ext\.compileSdkVersion', 'compileSdkVersion = 36', text)
+              text = re.sub(r'compileSdk\s*=\s*rootProject\.ext\.compileSdkVersion', 'compileSdk = 36', text)
+              text = re.sub(r'targetSdkVersion\s+rootProject\.ext\.targetSdkVersion', 'targetSdk 36', text)
+              text = re.sub(r'targetSdk\s+rootProject\.ext\.targetSdkVersion', 'targetSdk 36', text)
+              text = re.sub(r'targetSdkVersion\s*=\s*rootProject\.ext\.targetSdkVersion', 'targetSdkVersion = 36', text)
+              text = re.sub(r'targetSdk\s*=\s*rootProject\.ext\.targetSdkVersion', 'targetSdk = 36', text)
               text = re.sub(r'minSdkVersion\s+rootProject\.ext\.minSdkVersion', 'minSdk 22', text)
               text = re.sub(r'minSdk\s+rootProject\.ext\.minSdkVersion', 'minSdk 22', text)
               text = re.sub(r'minSdkVersion\s*=\s*rootProject\.ext\.minSdkVersion', 'minSdkVersion = 22', text)
               text = re.sub(r'minSdk\s*=\s*rootProject\.ext\.minSdkVersion', 'minSdk = 22', text)
-              text = re.sub(r'compileSdkVersion\s+\d+', 'compileSdkVersion 35', text)
-              text = re.sub(r'compileSdk\s+\d+', 'compileSdk 35', text)
-              text = re.sub(r'compileSdkVersion\s*=\s*\d+', 'compileSdkVersion = 35', text)
-              text = re.sub(r'compileSdk\s*=\s*\d+', 'compileSdk = 35', text)
-              text = re.sub(r'compileSdkVersion\(\s*\d+\s*\)', 'compileSdkVersion(35)', text)
-              text = re.sub(r'compileSdk\(\s*\d+\s*\)', 'compileSdk(35)', text)
-              text = re.sub(r'targetSdkVersion\s+\d+', 'targetSdkVersion 35', text)
-              text = re.sub(r'targetSdk\s+\d+', 'targetSdk 35', text)
-              text = re.sub(r'targetSdkVersion\s*=\s*\d+', 'targetSdkVersion = 35', text)
-              text = re.sub(r'targetSdk\s*=\s*\d+', 'targetSdk = 35', text)
-              text = re.sub(r'targetSdkVersion\(\s*\d+\s*\)', 'targetSdkVersion(35)', text)
-              text = re.sub(r'targetSdk\(\s*\d+\s*\)', 'targetSdk(35)', text)
+              text = re.sub(r'compileSdkVersion\s+\d+', 'compileSdkVersion 36', text)
+              text = re.sub(r'compileSdk\s+\d+', 'compileSdk 36', text)
+              text = re.sub(r'compileSdkVersion\s*=\s*\d+', 'compileSdkVersion = 36', text)
+              text = re.sub(r'compileSdk\s*=\s*\d+', 'compileSdk = 36', text)
+              text = re.sub(r'compileSdkVersion\(\s*\d+\s*\)', 'compileSdkVersion(36)', text)
+              text = re.sub(r'compileSdk\(\s*\d+\s*\)', 'compileSdk(36)', text)
+              text = re.sub(r'targetSdkVersion\s+\d+', 'targetSdkVersion 36', text)
+              text = re.sub(r'targetSdk\s+\d+', 'targetSdk 36', text)
+              text = re.sub(r'targetSdkVersion\s*=\s*\d+', 'targetSdkVersion = 36', text)
+              text = re.sub(r'targetSdk\s*=\s*\d+', 'targetSdk = 36', text)
+              text = re.sub(r'targetSdkVersion\(\s*\d+\s*\)', 'targetSdkVersion(36)', text)
+              text = re.sub(r'targetSdk\(\s*\d+\s*\)', 'targetSdk(36)', text)
               text = re.sub(r'minSdkVersion\s+\d+', 'minSdkVersion 22', text)
               text = re.sub(r'minSdk\s+\d+', 'minSdk 22', text)
               text = re.sub(r'minSdkVersion\s*=\s*\d+', 'minSdkVersion = 22', text)
@@ -1218,9 +1218,9 @@ workflows:
               text = re.sub(r'minSdk\(\s*\d+\s*\)', 'minSdk(22)', text)
               if path.name in ('build.gradle', 'build.gradle.kts') and path.parent.name == 'app':
                   if 'compileSdk' not in text and 'compileSdkVersion' not in text:
-                      text = re.sub(r'android\s*\{', 'android {\n    compileSdk 35', text, count=1)
+                      text = re.sub(r'android\s*\{', 'android {\n    compileSdk 36', text, count=1)
                   if 'targetSdk' not in text and 'targetSdkVersion' not in text:
-                      text = re.sub(r'defaultConfig\s*\{', 'defaultConfig {\n        targetSdk 35', text, count=1)
+                      text = re.sub(r'defaultConfig\s*\{', 'defaultConfig {\n        targetSdk 36', text, count=1)
                   if 'minSdk' not in text and 'minSdkVersion' not in text:
                       text = re.sub(r'defaultConfig\s*\{', 'defaultConfig {\n        minSdk 22', text, count=1)
                   text = re.sub(r'useLegacyPackaging\s*(?:=|\()?\s*true\s*\)?', 'useLegacyPackaging = false', text)
@@ -1229,7 +1229,7 @@ workflows:
                   if 'useLegacyPackaging = false' not in text:
                       block = (
                           '\n'
-                          '    // LOVABLE_16KB_JNILIBS - 16 KB page-size compatibility for Play (API 35+)\n'
+                          '    // LOVABLE_16KB_JNILIBS - 16 KB page-size compatibility for Play (API 36+)\n'
                           '    packaging {\n'
                           '        jniLibs {\n'
                           '            useLegacyPackaging = false\n'
@@ -1237,7 +1237,7 @@ workflows:
                           '    }\n'
                       ) if is_kts else (
                           '\n'
-                          '    // LOVABLE_16KB_JNILIBS - 16 KB page-size compatibility for Play (API 35+)\n'
+                          '    // LOVABLE_16KB_JNILIBS - 16 KB page-size compatibility for Play (API 36+)\n'
                           '    packagingOptions {\n'
                           '        jniLibs {\n'
                           '            useLegacyPackaging = false\n'
@@ -1312,7 +1312,7 @@ workflows:
                       return block.replace('<activity', f'<activity android:name="{fqcn}"', 1)
                   m = re.sub(r'<activity\b[\s\S]*?</activity>', patch_activity, m)
               manifest.write_text(m, encoding='utf-8')
-          print('✅ Android SDK locked to compileSdk 35, targetSdk 35, and minSdk 22')
+          print('✅ Android SDK locked to compileSdk 36, targetSdk 36, and minSdk 22')
           PY
       - name: Capacitor sync (link plugins + copy web assets)
         working_directory: user-project
@@ -1710,7 +1710,7 @@ workflows:
           import re, sys
           path = sys.argv[1]
           text = open(path, encoding='utf-8').read()
-          text = re.sub(r'^distributionUrl=.*$', r'distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-bin.zip', text, flags=re.M)
+          text = re.sub(r'^distributionUrl=.*$', r'distributionUrl=https\://services.gradle.org/distributions/gradle-8.11.1-bin.zip', text, flags=re.M)
           open(path, 'w', encoding='utf-8').write(text)
           PY
             echo "✅ Gradle wrapper pinned to 8.7 for Java 21 compatibility"
@@ -1723,12 +1723,12 @@ workflows:
           import re, sys
           path = sys.argv[1]
           text = open(path, encoding='utf-8').read()
-          text = re.sub(r"id\s+['\"]com\.android\.application['\"]\s+version\s+['\"][^'\"]+['\"]", "id 'com.android.application' version '8.6.1'", text)
-          text = re.sub(r"id\s+['\"]com\.android\.library['\"]\s+version\s+['\"][^'\"]+['\"]", "id 'com.android.library' version '8.6.1'", text)
-          text = re.sub(r"classpath\s+['\"]com\.android\.tools\.build:gradle:[^'\"]+['\"]", "classpath 'com.android.tools.build:gradle:8.6.1'", text)
+          text = re.sub(r"id\s+['\"]com\.android\.application['\"]\s+version\s+['\"][^'\"]+['\"]", "id 'com.android.application' version '8.9.1'", text)
+          text = re.sub(r"id\s+['\"]com\.android\.library['\"]\s+version\s+['\"][^'\"]+['\"]", "id 'com.android.library' version '8.9.1'", text)
+          text = re.sub(r"classpath\s+['\"]com\.android\.tools\.build:gradle:[^'\"]+['\"]", "classpath 'com.android.tools.build:gradle:8.9.1'", text)
           open(path, 'w', encoding='utf-8').write(text)
           PY
-          echo "✅ Android Gradle Plugin aligned to 8.6.1"
+          echo "✅ Android Gradle Plugin aligned to 8.9.1"
           # Capacitor plugins commonly drag in kotlin-stdlib-jdk7/jdk8:1.6.21 while
           # AGP 8.x ships kotlin-stdlib:1.8.22+. In Kotlin 1.8+ jdk7/jdk8 are merged
           # into the main stdlib, so mixing the two produces:
@@ -1850,30 +1850,30 @@ workflows:
                   continue
               text = path.read_text(encoding='utf-8')
               replacements = [
-                  (r'compileSdkVersion\s+rootProject\.ext\.compileSdkVersion', 'compileSdk 35'),
-                  (r'compileSdk\s+rootProject\.ext\.compileSdkVersion', 'compileSdk 35'),
-                  (r'compileSdkVersion\s*=\s*rootProject\.ext\.compileSdkVersion', 'compileSdkVersion = 35'),
-                  (r'compileSdk\s*=\s*rootProject\.ext\.compileSdkVersion', 'compileSdk = 35'),
-                  (r'targetSdkVersion\s+rootProject\.ext\.targetSdkVersion', 'targetSdk 35'),
-                  (r'targetSdk\s+rootProject\.ext\.targetSdkVersion', 'targetSdk 35'),
-                  (r'targetSdkVersion\s*=\s*rootProject\.ext\.targetSdkVersion', 'targetSdkVersion = 35'),
-                  (r'targetSdk\s*=\s*rootProject\.ext\.targetSdkVersion', 'targetSdk = 35'),
+                  (r'compileSdkVersion\s+rootProject\.ext\.compileSdkVersion', 'compileSdk 36'),
+                  (r'compileSdk\s+rootProject\.ext\.compileSdkVersion', 'compileSdk 36'),
+                  (r'compileSdkVersion\s*=\s*rootProject\.ext\.compileSdkVersion', 'compileSdkVersion = 36'),
+                  (r'compileSdk\s*=\s*rootProject\.ext\.compileSdkVersion', 'compileSdk = 36'),
+                  (r'targetSdkVersion\s+rootProject\.ext\.targetSdkVersion', 'targetSdk 36'),
+                  (r'targetSdk\s+rootProject\.ext\.targetSdkVersion', 'targetSdk 36'),
+                  (r'targetSdkVersion\s*=\s*rootProject\.ext\.targetSdkVersion', 'targetSdkVersion = 36'),
+                  (r'targetSdk\s*=\s*rootProject\.ext\.targetSdkVersion', 'targetSdk = 36'),
                   (r'minSdkVersion\s+rootProject\.ext\.minSdkVersion', 'minSdk 22'),
                   (r'minSdk\s+rootProject\.ext\.minSdkVersion', 'minSdk 22'),
                   (r'minSdkVersion\s*=\s*rootProject\.ext\.minSdkVersion', 'minSdkVersion = 22'),
                   (r'minSdk\s*=\s*rootProject\.ext\.minSdkVersion', 'minSdk = 22'),
-                  (r'compileSdkVersion\s+\d+', 'compileSdkVersion 35'),
-                  (r'compileSdk\s+\d+', 'compileSdk 35'),
-                  (r'compileSdkVersion\s*=\s*\d+', 'compileSdkVersion = 35'),
-                  (r'compileSdk\s*=\s*\d+', 'compileSdk = 35'),
-                  (r'compileSdkVersion\(\s*\d+\s*\)', 'compileSdkVersion(35)'),
-                  (r'compileSdk\(\s*\d+\s*\)', 'compileSdk(35)'),
-                  (r'targetSdkVersion\s+\d+', 'targetSdkVersion 35'),
-                  (r'targetSdk\s+\d+', 'targetSdk 35'),
-                  (r'targetSdkVersion\s*=\s*\d+', 'targetSdkVersion = 35'),
-                  (r'targetSdk\s*=\s*\d+', 'targetSdk = 35'),
-                  (r'targetSdkVersion\(\s*\d+\s*\)', 'targetSdkVersion(35)'),
-                  (r'targetSdk\(\s*\d+\s*\)', 'targetSdk(35)'),
+                  (r'compileSdkVersion\s+\d+', 'compileSdkVersion 36'),
+                  (r'compileSdk\s+\d+', 'compileSdk 36'),
+                  (r'compileSdkVersion\s*=\s*\d+', 'compileSdkVersion = 36'),
+                  (r'compileSdk\s*=\s*\d+', 'compileSdk = 36'),
+                  (r'compileSdkVersion\(\s*\d+\s*\)', 'compileSdkVersion(36)'),
+                  (r'compileSdk\(\s*\d+\s*\)', 'compileSdk(36)'),
+                  (r'targetSdkVersion\s+\d+', 'targetSdkVersion 36'),
+                  (r'targetSdk\s+\d+', 'targetSdk 36'),
+                  (r'targetSdkVersion\s*=\s*\d+', 'targetSdkVersion = 36'),
+                  (r'targetSdk\s*=\s*\d+', 'targetSdk = 36'),
+                  (r'targetSdkVersion\(\s*\d+\s*\)', 'targetSdkVersion(36)'),
+                  (r'targetSdk\(\s*\d+\s*\)', 'targetSdk(36)'),
                   (r'minSdkVersion\s+\d+', 'minSdkVersion 22'),
                   (r'minSdk\s+\d+', 'minSdk 22'),
                   (r'minSdkVersion\s*=\s*\d+', 'minSdkVersion = 22'),
@@ -1885,9 +1885,9 @@ workflows:
                   text = re.sub(pattern, replacement, text)
               if path == app:
                   if 'compileSdk' not in text and 'compileSdkVersion' not in text:
-                      text = re.sub(r'android\s*\{', 'android {\n    compileSdk 35', text, count=1)
+                      text = re.sub(r'android\s*\{', 'android {\n    compileSdk 36', text, count=1)
                   if 'targetSdk' not in text and 'targetSdkVersion' not in text:
-                      text = re.sub(r'defaultConfig\s*\{', 'defaultConfig {\n        targetSdk 35', text, count=1)
+                      text = re.sub(r'defaultConfig\s*\{', 'defaultConfig {\n        targetSdk 36', text, count=1)
                   if 'minSdk' not in text and 'minSdkVersion' not in text:
                       text = re.sub(r'defaultConfig\s*\{', 'defaultConfig {\n        minSdk 22', text, count=1)
                   text = re.sub(r'useLegacyPackaging\s*(?:=|\()?\s*true\s*\)?', 'useLegacyPackaging = false', text)
@@ -1896,7 +1896,7 @@ workflows:
                   if 'useLegacyPackaging = false' not in text:
                       block = (
                           '\n'
-                          '    // LOVABLE_16KB_JNILIBS - 16 KB page-size compatibility for Play (API 35+)\n'
+                          '    // LOVABLE_16KB_JNILIBS - 16 KB page-size compatibility for Play (API 36+)\n'
                           '    packaging {\n'
                           '        jniLibs {\n'
                           '            useLegacyPackaging = false\n'
@@ -1904,7 +1904,7 @@ workflows:
                           '    }\n'
                       ) if is_kts else (
                           '\n'
-                          '    // LOVABLE_16KB_JNILIBS - 16 KB page-size compatibility for Play (API 35+)\n'
+                          '    // LOVABLE_16KB_JNILIBS - 16 KB page-size compatibility for Play (API 36+)\n'
                           '    packagingOptions {\n'
                           '        jniLibs {\n'
                           '            useLegacyPackaging = false\n'
@@ -1986,7 +1986,7 @@ workflows:
               'targetSdk': re.search(r'targetSdk(?:Version)?\s*(?:=|\()?\s*(\d+)', app_text),
               'minSdk': re.search(r'minSdk(?:Version)?\s*(?:=|\()?\s*(\d+)', app_text),
           }
-          expected = {'compileSdk': '35', 'targetSdk': '35', 'minSdk': '22'}
+          expected = {'compileSdk': '36', 'targetSdk': '36', 'minSdk': '22'}
           for name, match in checks.items():
               if not match or match.group(1) != expected[name]:
                   raise SystemExit(f'❌ {name} is {match.group(1) if match else "missing"}; expected {expected[name]} before Gradle build')
