@@ -649,6 +649,45 @@ workflows:
           test -f ./gradlew
           chmod +x ./gradlew
           ls -la ./gradlew
+      - name: Force advertising ID permission into every manifest
+        working_directory: android-template
+        script: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib, re
+
+          AD_ID = 'com.google.android.gms.permission.AD_ID'
+          root = pathlib.Path('.')
+          targets = sorted(root.glob('app/src/*/AndroidManifest.xml'))
+          main = root / 'app/src/main/AndroidManifest.xml'
+          if main.exists() and main not in targets:
+              targets.append(main)
+          if not targets:
+              raise SystemExit('No AndroidManifest.xml found to patch for AD_ID')
+
+          patched = 0
+          for path in targets:
+              text = path.read_text(encoding='utf-8')
+              if '<manifest' not in text:
+                  continue
+              if 'xmlns:tools=' not in text:
+                  text = re.sub(r'<manifest\b([^>]*)>',
+                                lambda mm: '<manifest' + mm.group(1) + ' xmlns:tools="http://schemas.android.com/tools">',
+                                text, count=1)
+              # Drop every existing AD_ID declaration (including tools:node="remove" ones).
+              text = re.sub(r'[ \t]*<uses-permission[^>]*android:name="' + re.escape(AD_ID) + r'"[^>]*(?:/>|>\s*</uses-permission>)\s*\n?', '', text)
+              decl = ('    <uses-permission android:name="' + AD_ID + '" '
+                      'tools:node="replace" tools:remove="android:maxSdkVersion" />\n')
+              text = re.sub(r'(<manifest\b[^>]*>\s*\n)', lambda mm: mm.group(1) + decl, text, count=1)
+              path.write_text(text, encoding='utf-8')
+              if AD_ID not in path.read_text(encoding='utf-8'):
+                  raise SystemExit('Failed to inject AD_ID into ' + str(path))
+              patched += 1
+              print('Injected AD_ID permission into', path)
+          if patched == 0:
+              raise SystemExit('AD_ID injection did not patch any manifest')
+          print('AD_ID permission enforced in', patched, 'manifest(s).')
+          PY
       - name: Validate launch manifest before build
         working_directory: android-template
         script: |
@@ -717,6 +756,24 @@ workflows:
               ./gradlew --init-script "$INIT_SCRIPT" --refresh-dependencies bundleRelease "${GRADLE_ARGS[@]}" --stacktrace --no-daemon
               ;;
           esac
+      - name: Verify AD_ID survived the manifest merger
+        working_directory: android-template
+        script: |
+          set -euo pipefail
+          MERGED="$(find app/build/intermediates -name 'AndroidManifest.xml' -path '*merged_manifest*release*' | head -n 1 || true)"
+          if [ -z "$MERGED" ]; then
+            MERGED="$(find app/build/intermediates -name 'AndroidManifest.xml' -path '*release*' | head -n 1 || true)"
+          fi
+          if [ -z "$MERGED" ]; then
+            echo "No merged manifest found to inspect; relying on artifact-level AD_ID check."
+            exit 0
+          fi
+          echo "Inspecting merged manifest: $MERGED"
+          grep -F 'com.google.android.gms.permission.AD_ID' "$MERGED" >/dev/null || {
+            echo "Merged manifest lost com.google.android.gms.permission.AD_ID"
+            exit 1
+          }
+          echo "Merged release manifest declares com.google.android.gms.permission.AD_ID."
       - name: Verify applicationId matches PACKAGE_NAME
         working_directory: android-template
         script: |
@@ -1833,6 +1890,45 @@ workflows:
           INIT_SCRIPT="$HOME/.gradle/init.d/lovable-bouncycastle-jdk17.gradle"
           test -f "$INIT_SCRIPT" && grep -q 'LOVABLE_BOUNCY_CASTLE_JDK17_INIT' "$INIT_SCRIPT"
           grep -R "LOVABLE_BOUNCY_CASTLE_JDK17_ALIGN\|LOVABLE_GOOGLE_PLAY_SERVICES_MINSDK22_ALIGN" -n build.gradle app/build.gradle || true
+      - name: Force advertising ID permission into every manifest
+        working_directory: user-project/android
+        script: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib, re
+
+          AD_ID = 'com.google.android.gms.permission.AD_ID'
+          root = pathlib.Path('.')
+          targets = sorted(root.glob('app/src/*/AndroidManifest.xml'))
+          main = root / 'app/src/main/AndroidManifest.xml'
+          if main.exists() and main not in targets:
+              targets.append(main)
+          if not targets:
+              raise SystemExit('No AndroidManifest.xml found to patch for AD_ID')
+
+          patched = 0
+          for path in targets:
+              text = path.read_text(encoding='utf-8')
+              if '<manifest' not in text:
+                  continue
+              if 'xmlns:tools=' not in text:
+                  text = re.sub(r'<manifest\b([^>]*)>',
+                                lambda mm: '<manifest' + mm.group(1) + ' xmlns:tools="http://schemas.android.com/tools">',
+                                text, count=1)
+              # Drop every existing AD_ID declaration (including tools:node="remove" ones).
+              text = re.sub(r'[ \t]*<uses-permission[^>]*android:name="' + re.escape(AD_ID) + r'"[^>]*(?:/>|>\s*</uses-permission>)\s*\n?', '', text)
+              decl = ('    <uses-permission android:name="' + AD_ID + '" '
+                      'tools:node="replace" tools:remove="android:maxSdkVersion" />\n')
+              text = re.sub(r'(<manifest\b[^>]*>\s*\n)', lambda mm: mm.group(1) + decl, text, count=1)
+              path.write_text(text, encoding='utf-8')
+              if AD_ID not in path.read_text(encoding='utf-8'):
+                  raise SystemExit('Failed to inject AD_ID into ' + str(path))
+              patched += 1
+              print('Injected AD_ID permission into', path)
+          if patched == 0:
+              raise SystemExit('AD_ID injection did not patch any manifest')
+          print('AD_ID permission enforced in', patched, 'manifest(s).')
+          PY
       - name: Build Android App Bundle
         working_directory: user-project/android
         script: |
@@ -2019,6 +2115,24 @@ workflows:
             both) ./gradlew --init-script "$INIT_SCRIPT" --refresh-dependencies :app:assembleRelease :app:bundleRelease --no-daemon --stacktrace ;;
             *)    ./gradlew --init-script "$INIT_SCRIPT" --refresh-dependencies :app:bundleRelease --no-daemon --stacktrace ;;
           esac
+      - name: Verify AD_ID survived the manifest merger
+        working_directory: user-project/android
+        script: |
+          set -euo pipefail
+          MERGED="$(find app/build/intermediates -name 'AndroidManifest.xml' -path '*merged_manifest*release*' | head -n 1 || true)"
+          if [ -z "$MERGED" ]; then
+            MERGED="$(find app/build/intermediates -name 'AndroidManifest.xml' -path '*release*' | head -n 1 || true)"
+          fi
+          if [ -z "$MERGED" ]; then
+            echo "No merged manifest found to inspect; relying on artifact-level AD_ID check."
+            exit 0
+          fi
+          echo "Inspecting merged manifest: $MERGED"
+          grep -F 'com.google.android.gms.permission.AD_ID' "$MERGED" >/dev/null || {
+            echo "Merged manifest lost com.google.android.gms.permission.AD_ID"
+            exit 1
+          }
+          echo "Merged release manifest declares com.google.android.gms.permission.AD_ID."
       - name: Verify launcher opens from Capacitor artifact
         working_directory: user-project/android
         script: |
