@@ -1074,7 +1074,10 @@ allprojects { project ->
     // strip any stale tools:node="remove" nodes so the merged manifest ends
     // up with a single positive declaration.
     stripPerm('com.google.android.gms.permission.AD_ID')
-    ensurePerm('com.google.android.gms.permission.AD_ID', true)
+    m = m.replace(
+      /<manifest([^>]*)>/,
+      `<manifest$1>\n    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="replace" tools:remove="android:maxSdkVersion" />`,
+    )
     if (!ADMOB_ENABLED) {
       m = m.replace(
         /\n\s*<meta-data\s+android:name=["']com\.google\.android\.gms\.ads\.APPLICATION_ID["'][^>]*(?:\/>|>\s*<\/meta-data>)/g,
