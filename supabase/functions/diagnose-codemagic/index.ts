@@ -1,3 +1,5 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -12,6 +14,24 @@ Deno.serve(async (req) => {
     return json({ error: 'CODEMAGIC_API_TOKEN not set' }, 500)
   }
 
+  // --- Authentication: this endpoint exposes CI metadata and raw build logs,
+  // so it must never be reachable anonymously. ---
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader) return json({ error: 'No authorization header' }, 401)
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('SUPABASE_PUBLISHABLE_KEY')!
+
+  const userClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  })
+  const { data: { user } } = await userClient.auth.getUser()
+  if (!user) return json({ error: 'Unauthorized' }, 401)
+
+  const admin = createClient(supabaseUrl, serviceKey)
+  const { data: isAdmin } = await admin.rpc('has_role', { _user_id: user.id, _role: 'admin' })
+
   // If a build_id is supplied, fetch that build's status + failed steps.
   let buildId: string | null = null
   try {
@@ -20,6 +40,23 @@ Deno.serve(async (req) => {
     const url = new URL(req.url)
     buildId = buildId ?? url.searchParams.get('build_id')
   } catch (_) { /* noop */ }
+
+  // Non-admins may only diagnose Codemagic builds that belong to their own build configs.
+  if (buildId && !isAdmin) {
+    const { data: owned } = await admin
+      .from('build_configs')
+      .select('id')
+      .eq('user_id', user.id)
+      .or(`codemagic_build_id.eq.${buildId},id.eq.${buildId}`)
+      .limit(1)
+      .maybeSingle()
+    if (!owned) return json({ error: 'Build not found' }, 404)
+  }
+
+  // The account-wide Codemagic inventory (app ids, repo urls, workflows) is admin-only.
+  if (!buildId && !isAdmin) {
+    return json({ error: 'Forbidden' }, 403)
+  }
 
   if (buildId) {
     const bRes = await fetch(`https://api.codemagic.io/builds/${buildId}`, {
