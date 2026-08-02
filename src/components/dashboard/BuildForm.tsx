@@ -49,6 +49,17 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
   const [admobRewardedId, setAdmobRewardedId] = useState("");
   const [admobRewardedInterstitialId, setAdmobRewardedInterstitialId] = useState("");
   const [admobAppOpenId, setAdmobAppOpenId] = useState("");
+  const [mediation, setMediation] = useState<Record<MediationKey, boolean>>({
+    applovin: false,
+    meta: false,
+    unity: false,
+    pangle: false,
+    mintegral: false,
+    liftoff: false,
+  });
+  const [applovinSdkKey, setApplovinSdkKey] = useState("");
+  const anyMediationEnabled = Object.values(mediation).some(Boolean);
+
   const [detectedPlugins, setDetectedPlugins] = useState<string[]>([]);
   const [url, setUrl] = useState("");
   const [appName, setAppName] = useState("");
