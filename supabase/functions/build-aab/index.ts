@@ -229,9 +229,20 @@ Deno.serve(async (req) => {
           ADMOB_REWARDED_ID: resolvedAdMobAppId ? (build.admob_rewarded_id ?? '') : '',
           ADMOB_REWARDED_INTERSTITIAL_ID: resolvedAdMobAppId ? (build.admob_rewarded_interstitial_id ?? '') : '',
           ADMOB_APP_OPEN_ID: resolvedAdMobAppId ? (build.admob_app_open_id ?? '') : '',
+          // AdMob mediation adapters — only enabled networks are compiled into the
+          // artifact, so disabled networks add no size and no dependencies.
+          MEDIATION_APPLOVIN: mediationFlag(resolvedAdMobAppId, build.mediation_applovin),
+          MEDIATION_META: mediationFlag(resolvedAdMobAppId, build.mediation_meta),
+          MEDIATION_UNITY: mediationFlag(resolvedAdMobAppId, build.mediation_unity),
+          MEDIATION_PANGLE: mediationFlag(resolvedAdMobAppId, build.mediation_pangle),
+          MEDIATION_MINTEGRAL: mediationFlag(resolvedAdMobAppId, build.mediation_mintegral),
+          MEDIATION_LIFTOFF: mediationFlag(resolvedAdMobAppId, build.mediation_liftoff),
+          APPLOVIN_SDK_KEY:
+            resolvedAdMobAppId && build.mediation_applovin ? String(build.applovin_sdk_key ?? '').trim() : '',
           // Production-only: AdMob test mode is force-disabled regardless of any
           // legacy DB flag, so builds always serve real ad units from the IDs above.
           ADMOB_TEST_MODE: 'false',
+
           APP_URL: build.url ?? '',
           APP_NAME: build.app_name,
           PACKAGE_NAME: packageName,
