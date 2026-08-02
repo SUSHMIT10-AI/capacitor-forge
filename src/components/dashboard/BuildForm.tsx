@@ -320,6 +320,16 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
         return;
       }
     }
+    const mediationOn = Boolean(resolvedAdMobAppId) && anyMediationEnabled;
+    if (mediationOn && mediation.applovin && !applovinSdkKey.trim()) {
+      toast({
+        title: "AppLovin SDK key required",
+        description: "AppLovin mediation needs its SDK key (AppLovin dashboard → Account → Keys).",
+        variant: "destructive",
+      });
+      return;
+    }
+
 
     setBuilding(true);
     setBuildStep("Preparing build…");
