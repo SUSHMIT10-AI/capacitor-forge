@@ -27,6 +27,7 @@ export type Database = {
           allow_external_links: boolean
           allow_zoom: boolean
           app_name: string
+          applovin_sdk_key: string | null
           block_screenshots: boolean
           build_type: string
           cache_enabled: boolean
@@ -68,6 +69,12 @@ export type Database = {
           icon_path: string | null
           id: string
           keep_screen_on: boolean
+          mediation_applovin: boolean
+          mediation_liftoff: boolean
+          mediation_meta: boolean
+          mediation_mintegral: boolean
+          mediation_pangle: boolean
+          mediation_unity: boolean
           mode: string
           nav_color: string | null
           orientation: string
@@ -100,6 +107,7 @@ export type Database = {
           allow_external_links?: boolean
           allow_zoom?: boolean
           app_name: string
+          applovin_sdk_key?: string | null
           block_screenshots?: boolean
           build_type?: string
           cache_enabled?: boolean
@@ -141,6 +149,12 @@ export type Database = {
           icon_path?: string | null
           id?: string
           keep_screen_on?: boolean
+          mediation_applovin?: boolean
+          mediation_liftoff?: boolean
+          mediation_meta?: boolean
+          mediation_mintegral?: boolean
+          mediation_pangle?: boolean
+          mediation_unity?: boolean
           mode?: string
           nav_color?: string | null
           orientation?: string
@@ -173,6 +187,7 @@ export type Database = {
           allow_external_links?: boolean
           allow_zoom?: boolean
           app_name?: string
+          applovin_sdk_key?: string | null
           block_screenshots?: boolean
           build_type?: string
           cache_enabled?: boolean
@@ -214,6 +229,12 @@ export type Database = {
           icon_path?: string | null
           id?: string
           keep_screen_on?: boolean
+          mediation_applovin?: boolean
+          mediation_liftoff?: boolean
+          mediation_meta?: boolean
+          mediation_mintegral?: boolean
+          mediation_pangle?: boolean
+          mediation_unity?: boolean
           mode?: string
           nav_color?: string | null
           orientation?: string
