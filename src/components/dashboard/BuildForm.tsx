@@ -27,6 +27,18 @@ interface BuildFormProps {
 
 type BuildConfigInsertPayload = Record<string, unknown>;
 
+type MediationKey = "applovin" | "meta" | "unity" | "pangle" | "mintegral" | "liftoff";
+
+const MEDIATION_NETWORKS: { key: MediationKey; label: string; description: string }[] = [
+  { key: "applovin", label: "AppLovin MAX", description: "Adapter 13.6.3.0 — needs an AppLovin SDK key" },
+  { key: "meta", label: "Meta Audience Network", description: "Adapter 6.22.0.0" },
+  { key: "unity", label: "Unity Ads", description: "Adapter 4.19.0.0" },
+  { key: "pangle", label: "Pangle", description: "Adapter 8.2.0.4.0" },
+  { key: "mintegral", label: "Mintegral", description: "Adapter 17.1.71.0" },
+  { key: "liftoff", label: "Liftoff Monetize (Vungle)", description: "Adapter 7.7.7.0" },
+];
+
+
 const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
   const versionNameToCode = (value: string) => {
     const parts = value
