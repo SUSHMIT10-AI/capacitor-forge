@@ -884,6 +884,63 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
               </div>
             </div>
 
+            <div className="rounded-lg border border-border bg-card/30 p-4 space-y-3">
+              <div>
+                <p className="text-sm font-heading font-medium text-foreground">Ad mediation networks</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Bundle official AdMob mediation adapters. Only the networks you enable are compiled in, so the AAB stays small. After building, configure each network inside the AdMob console (Mediation → ad sources).
+                </p>
+              </div>
+
+              {!admobAppId.trim() ? (
+                <div className="rounded-md border border-border bg-muted/30 p-3 text-[11px] text-muted-foreground">
+                  Enter your AdMob App ID above to enable mediation networks.
+                </div>
+              ) : (
+                <>
+                  {MEDIATION_NETWORKS.map((network) => (
+                    <div
+                      key={network.key}
+                      className="flex items-center justify-between rounded-md border border-border bg-background/40 p-3"
+                    >
+                      <div className="pr-3">
+                        <p className="text-xs font-heading font-medium text-foreground">{network.label}</p>
+                        <p className="text-[10px] text-muted-foreground">{network.description}</p>
+                      </div>
+                      <Switch
+                        checked={mediation[network.key]}
+                        onCheckedChange={(checked) =>
+                          setMediation((prev) => ({ ...prev, [network.key]: checked }))
+                        }
+                      />
+                    </div>
+                  ))}
+
+                  {mediation.applovin && (
+                    <div className="space-y-1">
+                      <Label className="text-xs font-heading text-foreground">AppLovin SDK Key</Label>
+                      <Input
+                        placeholder="Your AppLovin SDK key"
+                        value={applovinSdkKey}
+                        onChange={(e) => setApplovinSdkKey(e.target.value)}
+                        className="font-mono text-xs"
+                      />
+                      <p className="text-[10px] text-muted-foreground">
+                        Required by AppLovin. Find it in AppLovin dashboard → Account → Keys. It is written into the manifest as <code>applovin.sdk.key</code>.
+                      </p>
+                    </div>
+                  )}
+
+                  {anyMediationEnabled && (
+                    <div className="rounded-md border border-border bg-muted/30 p-3 text-[11px] text-muted-foreground">
+                      Mediation ships Google Mobile Ads SDK 25.x, which requires <b>Android 6.0 (API 23)</b>. Builds with mediation on raise the app's minimum Android version from 22 to 23 automatically. Turn all networks off to keep API 22 support.
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+
             <div className="flex items-center justify-between rounded-lg border border-border bg-card/30 p-4">
               <div>
                 <p className="text-sm font-heading font-medium text-foreground">Google Play Billing</p>
