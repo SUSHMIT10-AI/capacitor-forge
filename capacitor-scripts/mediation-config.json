@@ -1,0 +1,76 @@
+{
+  "_comment": "AdMob mediation adapter matrix. Versions are pinned to the latest stable releases published on Google's Maven repository and all depend on Google Mobile Ads SDK 25.4.0. Update this file (and nothing else) to bump the mediation stack.",
+  "adsSdkVersion": "25.4.0",
+  "legacyAdsSdkVersion": "23.6.0",
+  "mediationMinSdk": 23,
+  "networks": {
+    "applovin": {
+      "label": "AppLovin MAX",
+      "env": "MEDIATION_APPLOVIN",
+      "artifact": "com.google.ads.mediation:applovin:13.6.3.0",
+      "repositories": ["https://artifacts.applovin.com/android"],
+      "proguard": [
+        "-keep class com.applovin.** { *; }",
+        "-dontwarn com.applovin.**",
+        "-keep class com.google.ads.mediation.applovin.** { *; }"
+      ]
+    },
+    "meta": {
+      "label": "Meta Audience Network",
+      "env": "MEDIATION_META",
+      "artifact": "com.google.ads.mediation:facebook:6.22.0.0",
+      "repositories": [],
+      "proguard": [
+        "-keep class com.facebook.ads.** { *; }",
+        "-dontwarn com.facebook.ads.**",
+        "-keep class com.google.ads.mediation.facebook.** { *; }"
+      ]
+    },
+    "unity": {
+      "label": "Unity Ads",
+      "env": "MEDIATION_UNITY",
+      "artifact": "com.google.ads.mediation:unity:4.19.0.0",
+      "repositories": [],
+      "proguard": [
+        "-keep class com.unity3d.ads.** { *; }",
+        "-keep class com.unity3d.services.** { *; }",
+        "-dontwarn com.unity3d.**",
+        "-keep class com.google.ads.mediation.unity.** { *; }"
+      ]
+    },
+    "pangle": {
+      "label": "Pangle",
+      "env": "MEDIATION_PANGLE",
+      "artifact": "com.google.ads.mediation:pangle:8.2.0.4.0",
+      "repositories": ["https://artifact.bytedance.com/repository/pangle"],
+      "proguard": [
+        "-keep class com.bytedance.sdk.** { *; }",
+        "-dontwarn com.bytedance.sdk.**",
+        "-keep class com.google.ads.mediation.pangle.** { *; }"
+      ]
+    },
+    "mintegral": {
+      "label": "Mintegral",
+      "env": "MEDIATION_MINTEGRAL",
+      "artifact": "com.google.ads.mediation:mintegral:17.1.71.0",
+      "repositories": ["https://dl-maven-android.mintegral.com/repository/mbridge_android_sdk_oversea"],
+      "proguard": [
+        "-keep class com.mbridge.** { *; }",
+        "-dontwarn com.mbridge.**",
+        "-keep class com.google.ads.mediation.mintegral.** { *; }",
+        "-keepclassmembers class ** { @com.mbridge.msdk.foundation.tools.SameSignature *; }"
+      ]
+    },
+    "liftoff": {
+      "label": "Liftoff Monetize (Vungle)",
+      "env": "MEDIATION_LIFTOFF",
+      "artifact": "com.google.ads.mediation:vungle:7.7.7.0",
+      "repositories": [],
+      "proguard": [
+        "-keep class com.vungle.ads.** { *; }",
+        "-dontwarn com.vungle.ads.**",
+        "-keep class com.google.ads.mediation.vungle.** { *; }"
+      ]
+    }
+  }
+}

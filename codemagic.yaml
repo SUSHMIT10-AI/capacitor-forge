@@ -717,7 +717,13 @@ workflows:
                   raise SystemExit('❌ AdMob is enabled but APPLICATION_ID metadata is missing from AndroidManifest.xml. This can crash the app on launch.')
           print('✅ Launch manifest verified before build.')
           PY
+      - name: Apply AdMob mediation adapters
+        script: |
+          set -euo pipefail
+          python3 "$CM_BUILD_DIR/capacitor-scripts/apply-mediation.py" --root "$CM_BUILD_DIR/android-template"
+          python3 "$CM_BUILD_DIR/capacitor-scripts/apply-mediation.py" --root "$CM_BUILD_DIR/android-template" --verify
       - name: Build Android artifacts
+
         working_directory: android-template
         script: |
           set -euo pipefail
@@ -1929,7 +1935,13 @@ workflows:
               raise SystemExit('AD_ID injection did not patch any manifest')
           print('AD_ID permission enforced in', patched, 'manifest(s).')
           PY
+      - name: Apply AdMob mediation adapters (Capacitor)
+        script: |
+          set -euo pipefail
+          python3 "$CM_BUILD_DIR/capacitor-scripts/apply-mediation.py" --root "$CM_BUILD_DIR/user-project/android"
+          python3 "$CM_BUILD_DIR/capacitor-scripts/apply-mediation.py" --root "$CM_BUILD_DIR/user-project/android" --verify
       - name: Build Android App Bundle
+
         working_directory: user-project/android
         script: |
           set -euo pipefail
