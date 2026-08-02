@@ -1935,7 +1935,13 @@ workflows:
               raise SystemExit('AD_ID injection did not patch any manifest')
           print('AD_ID permission enforced in', patched, 'manifest(s).')
           PY
+      - name: Apply AdMob mediation adapters (Capacitor)
+        script: |
+          set -euo pipefail
+          python3 "$CM_BUILD_DIR/capacitor-scripts/apply-mediation.py" --root "$CM_BUILD_DIR/user-project/android"
+          python3 "$CM_BUILD_DIR/capacitor-scripts/apply-mediation.py" --root "$CM_BUILD_DIR/user-project/android" --verify
       - name: Build Android App Bundle
+
         working_directory: user-project/android
         script: |
           set -euo pipefail
