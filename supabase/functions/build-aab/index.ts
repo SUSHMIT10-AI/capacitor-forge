@@ -467,5 +467,13 @@ function validateAdMobIds(build: any): string | null {
     if (!/^ca-app-pub-\d+\/\d+$/.test(value)) return `Invalid ${label} AdMob ad unit ID format.`
     if (value.startsWith(samplePublisher)) return `Google sample/test ${label} AdMob ad unit IDs are not allowed.`
   }
+  if (build.mediation_applovin && !String(build.applovin_sdk_key ?? '').trim()) {
+    return 'AppLovin mediation is enabled but the AppLovin SDK key is missing. Add it in the Monetize tab.'
+  }
   return null
 }
+
+function mediationFlag(admobAppId: string, enabled: unknown): string {
+  return admobAppId && enabled ? 'true' : 'false'
+}
+
