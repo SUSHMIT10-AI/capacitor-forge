@@ -424,7 +424,15 @@ const BuildForm = ({ userId, onBuildStarted }: BuildFormProps) => {
           "admob_rewarded_interstitial_id",
           "admob_app_open_id",
           "admob_test_mode",
+          "mediation_applovin",
+          "mediation_meta",
+          "mediation_unity",
+          "mediation_pangle",
+          "mediation_mintegral",
+          "mediation_liftoff",
+          "applovin_sdk_key",
         ];
+
 
         if (missingColumn && adMobMigrationColumns.includes(missingColumn)) {
           throw new Error(
