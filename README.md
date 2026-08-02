@@ -24,6 +24,33 @@ AABforge therefore builds at **API 36** so uploads stay accepted past the deadli
 - `android.bundle.enableUncompressedNativeLibs=true` + `jniLibs.useLegacyPackaging=false` + `android:extractNativeLibs="false"` for Play's 16 KB requirement.
 - AAB is verified post-build with `bundletool` (`PAGE_ALIGNMENT_16K`), and generated APKs are re-checked with `zipalign -P 16` and `llvm-readelf` LOAD-segment alignment.
 
+## AdMob Mediation
+
+The Monetize tab has an **Ad mediation networks** section (visible once a real AdMob App ID is entered). Supported adapters:
+
+| Network | Adapter |
+| --- | --- |
+| AppLovin MAX | `com.google.ads.mediation:applovin:13.6.3.0` (requires an AppLovin SDK key) |
+| Meta Audience Network | `com.google.ads.mediation:facebook:6.22.0.0` |
+| Unity Ads | `com.google.ads.mediation:unity:4.19.0.0` |
+| Pangle | `com.google.ads.mediation:pangle:8.2.0.4.0` |
+| Mintegral | `com.google.ads.mediation:mintegral:17.1.71.0` |
+| Liftoff Monetize (Vungle) | `com.google.ads.mediation:vungle:7.7.7.0` |
+
+`capacitor-scripts/apply-mediation.py` (run in both workflows, driven by `capacitor-scripts/mediation-config.json`) automatically:
+
+- compiles **only the enabled adapters** — disabled networks add zero size and zero dependencies;
+- adds the AppLovin / Pangle / Mintegral Maven repositories;
+- realigns every Google Mobile Ads pin to `25.4.0` and forces one SDK version across all adapters (no Gradle conflicts);
+- raises `minSdk` from 22 to **23** only when mediation is on (Mobile Ads 25.x requirement) — mediation-free builds stay at API 22;
+- injects the `applovin.sdk.key` manifest meta-data;
+- appends ProGuard/R8 keep rules for each network so adapters are not stripped;
+- re-runs in `--verify` mode before Gradle so missing dependencies, repositories or the AppLovin key fail the build early.
+
+Existing banner, interstitial, rewarded, rewarded-interstitial, native and app-open ads are unchanged — mediation is additive. Configure the ad sources themselves in the AdMob console.
+
+
+
 ## Play Console upload audit (what the builder guarantees)
 
 | Play Console requirement | Where it is enforced |
